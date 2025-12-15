@@ -24,7 +24,7 @@ This will also run `prisma generate` automatically via the `postinstall` script.
 
 ### 4. Database Setup
 
-The app uses **PostgreSQL** with **Prisma** as the ORM. You can either:
+The app uses **PostgreSQL** with **Prisma** as the ORM.
 
 For local dev, we will run the Postgres locally with Docker using the provided `docker-compose.yaml`
 
