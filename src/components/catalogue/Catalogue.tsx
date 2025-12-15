@@ -25,7 +25,7 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
   const filteredItems = items.filter(
     (item) =>
       item.itemDesc.toLowerCase().includes(searchString.toLowerCase()) ||
-      item.itemId.toLowerCase().includes(searchString.toLowerCase()) ||
+      item.nuscSn.toLowerCase().includes(searchString.toLowerCase()) ||
       item.sloc.slocName.toLowerCase().includes(searchString.toLowerCase()) ||
       item.ih.ihName.toLowerCase().includes(searchString.toLowerCase()) ||
       (item.itemRemarks &&
@@ -77,7 +77,7 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
               </h3>
               <div className="mb-4 flex-1 space-y-2 text-sm text-gray-700">
                 <p>
-                  <span className="font-semibold">ID:</span> {item.itemId}
+                  <span className="font-semibold">NUSC SN:</span> {item.nuscSn}
                 </p>
                 <p>
                   <span className="font-semibold">Quantity:</span> {item.itemQty}{" "}
@@ -104,6 +104,7 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
                   mode="edit"
                   item={{
                     itemId: item.itemId,
+                    nuscSn: item.nuscSn,
                     itemDesc: item.itemDesc,
                     itemQty: item.itemQty,
                     itemUom: item.itemUom,
@@ -115,8 +116,8 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
                     itemImage: item.itemImage,
                   }}
                 />
-                <DeleteItemButton 
-                  itemId={item.itemId} 
+                <DeleteItemButton
+                  itemId={Number(item.itemId)}
                   itemDesc={item.itemDesc}
                 />
               </div>

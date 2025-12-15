@@ -105,7 +105,7 @@ async function main() {
   console.log('Creating items...');
   const item1 = await prisma.item.create({
     data: {
-      itemId: 'ITEM001',
+      nuscSn: 'ITEM001',
       itemDesc: 'Laptop Computer',
       itemSloc: sloc1.slocId,
       itemIh: ih1.ihId,
@@ -118,7 +118,7 @@ async function main() {
   });
   const item2 = await prisma.item.create({
     data: {
-      itemId: 'ITEM002',
+      nuscSn: 'ITEM002',
       itemDesc: 'Projector',
       itemSloc: sloc1.slocId,
       itemIh: ih1.ihId,
@@ -130,7 +130,7 @@ async function main() {
   });
   const item3 = await prisma.item.create({
     data: {
-      itemId: 'ITEM003',
+      nuscSn: 'ITEM003',
       itemDesc: 'Microphone Set',
       itemSloc: sloc2.slocId,
       itemIh: ih2.ihId,
@@ -142,7 +142,7 @@ async function main() {
   });
   const item4 = await prisma.item.create({
     data: {
-      itemId: 'ITEM004',
+      nuscSn: 'ITEM004',
       itemDesc: 'Sound System',
       itemSloc: sloc3.slocId,
       itemIh: ih3.ihId,
@@ -154,7 +154,7 @@ async function main() {
   });
   const item5 = await prisma.item.create({
     data: {
-      itemId: 'ITEM005',
+      nuscSn: 'ITEM005',
       itemDesc: 'Table',
       itemSloc: sloc2.slocId,
       itemIh: ih2.ihId,

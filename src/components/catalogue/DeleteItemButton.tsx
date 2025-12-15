@@ -18,7 +18,7 @@ import {
 import { deleteItem } from "@/lib/actions/item";
 
 interface DeleteItemButtonProps {
-  itemId: string;
+  itemId: number;
   itemDesc: string;
   onDelete?: () => void;
 }
@@ -34,7 +34,7 @@ export default function DeleteItemButton({
   async function handleDelete() {
     // Optimistic update - remove from UI immediately
 
-    // Perform actual deletion in background
+    // Perform actual deletion in background (by primary key)
     const result = await deleteItem(itemId);
 
     setOpen(false);
@@ -69,8 +69,8 @@ export default function DeleteItemButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Item</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete <strong>{itemDesc}</strong> (ID:{" "}
-            {itemId})? This action cannot be undone.
+            Are you sure you want to delete <strong>{itemDesc}</strong>? This
+            action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

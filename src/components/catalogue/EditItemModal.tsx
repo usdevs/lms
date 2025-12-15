@@ -35,20 +35,22 @@ import { Plus } from "lucide-react";
 import type { SlocView, IHView } from "@/lib/utils/server/item";
 import type { Prisma } from "@prisma/client";
 
-type ItemForEdit = Prisma.ItemGetPayload<{
-  select: {
-    itemId: true;
-    itemDesc: true;
-    itemQty: true;
-    itemUom: true;
-    itemSloc: true;
-    itemIh: true;
-    itemRemarks: true;
-    itemPurchaseDate: true;
-    itemRfpNumber: true;
-    itemImage: true;
-  };
-}>;
+type ItemForEdit =
+  Prisma.ItemGetPayload<{
+    select: {
+      itemId: true; // internal numeric ID, not editable
+      nuscSn: true;
+      itemDesc: true;
+      itemQty: true;
+      itemUom: true;
+      itemSloc: true;
+      itemIh: true;
+      itemRemarks: true;
+      itemPurchaseDate: true;
+      itemRfpNumber: true;
+      itemImage: true;
+    };
+  }> & { nuscSn: string };
 
 interface EditItemModalProps {
   slocs: SlocView[];
@@ -79,7 +81,7 @@ export default function EditItemModal({
 
   const defaultValues = useMemo(
     () => ({
-      itemId: item?.itemId ?? "",
+      nuscSn: item?.nuscSn ?? "",
       itemDesc: item?.itemDesc ?? "",
       // Let Zod coerce quantity from string; default to empty string in the input
       itemQty: item?.itemQty ?? undefined,
@@ -113,7 +115,7 @@ export default function EditItemModal({
 
     const result =
       mode === "edit" && item
-        ? await updateItem(item.itemId, formData)
+        ? await updateItem(Number(item.itemId), formData)
         : await createItem(formData);
 
     setIsSubmitting(false);
@@ -132,8 +134,8 @@ export default function EditItemModal({
       `Failed to ${mode === "edit" ? "update" : "create"} item`;
 
     // Map known server-side validation errors to fields where possible
-    if (errorMessage.includes("Item ID")) {
-      form.setError("itemId", { message: errorMessage });
+    if (errorMessage.includes("NUSC SN")) {
+      form.setError("nuscSn", { message: errorMessage });
     } else if (errorMessage.includes("Description")) {
       form.setError("itemDesc", { message: errorMessage });
     } else if (errorMessage.includes("Quantity")) {
@@ -195,7 +197,7 @@ export default function EditItemModal({
             <div className="grid gap-4 py-4">
               <FormField
                 control={form.control}
-                name="itemId"
+                name="nuscSn"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>NUSC SN *</FormLabel>

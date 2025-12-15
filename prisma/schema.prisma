@@ -19,8 +19,8 @@ model IH {
 }
 
 model Item {
-  id               Int              @id @default(autoincrement())
-  itemId           String           @unique @map("nusc_sn")
+  itemId           Int              @id @default(autoincrement()) @map("item_id")
+  nuscSn           String           @unique @map("nusc_sn")
   itemDesc         String           @map("item_desc")
   itemSloc         String           @map("item_sloc")
   itemIh           String           @map("item_ih")
@@ -40,7 +40,7 @@ model Item {
 model LoanItemDetail {
   loanDetailId   Int         @id @default(autoincrement()) @map("loan_detail_id")
   refNo          Int         @map("ref_no")
-  itemId         String      @map("item_id")
+  itemId         Int         @map("item_id")
   loanQty        Int         @map("loan_qty")
   loanStatus     String      @map("loan_status")
   itemSlocAtLoan String?     @map("item_sloc_at_loan")
