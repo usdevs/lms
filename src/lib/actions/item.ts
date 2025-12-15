@@ -28,21 +28,22 @@ export async function createItem(formData: FormData) {
     };
   }
 
-  // Check if item ID already exists
+  // Check if NUSC SN already exists
   const existingItem = await prisma.item.findUnique({
-    where: { itemId: data.itemId.trim() },
+    // Temporary cast while Prisma client types catch up with schema
+    where: { nuscSn: data.nuscSn.trim() },
   });
   if (existingItem) {
     return {
       success: false,
-      error: `Item ID "${data.itemId.trim()}" already exists. Please use a different ID.`,
+      error: `NUSC SN "${data.nuscSn.trim()}" already exists. Please use a different value.`,
     };
   }
 
   try {
     await prisma.item.create({
       data: {
-        itemId: data.itemId.trim(),
+        nuscSn: data.nuscSn.trim(),
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
         itemIh: data.itemIh.trim(),
@@ -75,7 +76,7 @@ export async function createItem(formData: FormData) {
   return { success: true };
 }
 
-export async function updateItem(itemId: string, formData: FormData) {
+export async function updateItem(itemId: number, formData: FormData) {
   let data;
   try {
     data = EditItemServerSchema.parse(formDataToObject(formData));
@@ -92,27 +93,26 @@ export async function updateItem(itemId: string, formData: FormData) {
     };
   }
 
-  const newItemId = data.itemId.trim();
-  const originalItemId = itemId.trim();
+  const newNuscSn = data.nuscSn.trim();
 
-  // If the ID is being changed, ensure the new ID is unique
-  if (newItemId !== originalItemId) {
-    const existingItem = await prisma.item.findUnique({
-      where: { itemId: newItemId },
-    });
-    if (existingItem) {
-      return {
-        success: false,
-        error: `Item ID "${newItemId}" already exists. Please use a different ID.`,
-      };
-    }
+  // If NUSC SN is being changed or even re-set, ensure no other item already has it
+  const existingWithNuscSn = await prisma.item.findUnique({
+    where: { nuscSn: newNuscSn },
+  });
+
+  if (existingWithNuscSn && existingWithNuscSn.itemId !== itemId) {
+    return {
+      success: false,
+      error: `NUSC SN "${newNuscSn}" already exists. Please use a different value.`,
+    };
   }
 
   try {
     await prisma.item.update({
-      where: { itemId: originalItemId },
+      where: { itemId: itemId as any },
       data: {
-        itemId: newItemId,
+        itemId: itemId,
+        nuscSn: newNuscSn,
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
         itemIh: data.itemIh.trim(),
@@ -144,7 +144,7 @@ export async function updateItem(itemId: string, formData: FormData) {
   return { success: true };
 }
 
-export async function deleteItem(itemId: string) {
+export async function deleteItem(itemId: number) {
   let data;
   try {
     data = DeleteItemSchema.parse({ itemId });
@@ -163,7 +163,7 @@ export async function deleteItem(itemId: string) {
 
   try {
     await prisma.item.delete({
-      where: { itemId: data.itemId },
+      where: { itemId: data.itemId as any },
     });
   } catch (error: any) {
     console.error("Error deleting item:", error);
