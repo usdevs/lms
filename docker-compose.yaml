@@ -1,0 +1,19 @@
+services:
+  dev-db:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: lms_dev
+    networks:
+      - lms_dev
+    volumes:
+      - db:/var/lib/postgresql/data
+
+volumes:
+  db:
+
+networks:
+  lms_dev:

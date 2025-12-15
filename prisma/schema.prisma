@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model IH {
+  ihId        String           @id @map("ih_id")
+  ihName      String           @map("ih_name")
+  ihPocTele   String?          @map("ih_poc_tele")
+  items       Item[]           @relation("ItemIH")
+  loanDetails LoanItemDetail[] @relation("LoanItemDetailIH")
+
+  @@map("ih")
+}
+
+model Item {
+  itemId           String           @id @map("item_id")
+  itemDesc         String           @map("item_desc")
+  itemSloc         String           @map("item_sloc")
+  itemIh           String           @map("item_ih")
+  itemQty          Int              @map("item_qty")
+  itemUom          String           @map("item_uom")
+  itemPurchaseDate DateTime?        @map("item_purchase_date")
+  itemRfpNumber    String?          @map("item_rfp_number")
+  itemImage        String?          @map("item_image")
+  itemRemarks      String?          @map("item_remarks")
+  sloc             Sloc             @relation("ItemSloc", fields: [itemSloc], references: [slocId], onDelete: Cascade, onUpdate: Cascade)
+  ih               IH               @relation("ItemIH", fields: [itemIh], references: [ihId], onDelete: Cascade, onUpdate: Cascade)
+  loanDetails      LoanItemDetail[]
+
+  @@map("item")
+}
+
+model LoanItemDetail {
+  loanDetailId   Int         @id @default(autoincrement()) @map("loan_detail_id")
+  refNo          Int         @map("ref_no")
+  itemId         String      @map("item_id")
+  loanQty        Int         @map("loan_qty")
+  loanStatus     String      @map("loan_status")
+  itemSlocAtLoan String?     @map("item_sloc_at_loan")
+  itemIhAtLoan   String?     @map("item_ih_at_loan")
+  loanRequest    LoanRequest @relation(fields: [refNo], references: [refNo], onDelete: Cascade, onUpdate: Cascade)
+  item           Item        @relation(fields: [itemId], references: [itemId], onDelete: Cascade, onUpdate: Cascade)
+  slocAtLoan     Sloc?       @relation("LoanItemDetailSloc", fields: [itemSlocAtLoan], references: [slocId], onDelete: Cascade, onUpdate: Cascade)
+  ihAtLoan       IH?         @relation("LoanItemDetailIH", fields: [itemIhAtLoan], references: [ihId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("loan_item_detail")
+}
+
+model LoanRequest {
+  refNo         Int              @id @default(autoincrement()) @map("ref_no")
+  loanDateStart DateTime         @map("loan_date_start")
+  loanDateEnd   DateTime         @map("loan_date_end")
+  reqId         Int              @map("req_id")
+  loggieId      Int?             @map("loggie_id")
+  organisation  String?
+  eventDetails  String?          @map("event_details")
+  eventLocation String?          @map("event_location")
+  requestStatus String           @map("request_status")
+  requester     Requester        @relation(fields: [reqId], references: [reqId], onDelete: Cascade, onUpdate: Cascade)
+  loggie        Loggies?         @relation(fields: [loggieId], references: [loggieId], onDelete: Cascade, onUpdate: Cascade)
+  loanDetails   LoanItemDetail[]
+
+  @@map("loan_request")
+}
+
+model Loggies {
+  loggieId     Int           @id @default(autoincrement()) @map("loggie_id")
+  loggieName   String        @map("loggie_name")
+  loggieTele   String?       @map("loggie_tele")
+  loggieNusnet String        @unique @map("loggie_nusnet")
+  loanRequests LoanRequest[]
+
+  @@map("loggies")
+}
+
+model Requester {
+  reqId         Int           @id @default(autoincrement()) @map("req_id")
+  reqName       String        @map("req_name")
+  reqTelehandle String?       @map("req_telehandle")
+  reqNusnet     String        @unique @map("req_nusnet")
+  loanRequests  LoanRequest[]
+
+  @@map("requester")
+}
+
+model Sloc {
+  slocId      String           @id @map("sloc_id")
+  slocName    String           @map("sloc_name")
+  items       Item[]           @relation("ItemSloc")
+  loanDetails LoanItemDetail[] @relation("LoanItemDetailSloc")
+
+  @@map("sloc")
+}
