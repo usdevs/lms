@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,8 +15,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -24,6 +26,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createItem, updateItem } from "@/lib/actions/item";
+import { objectToFormData } from "@/lib/utils";
+import {
+  EditItemClientSchema,
+  NewItemClientSchema,
+} from "@/lib/schema/item";
 import { Plus } from "lucide-react";
 import type { SlocView, IHView } from "@/lib/utils/server/item";
 import type { Prisma } from "@prisma/client";
@@ -53,15 +60,6 @@ interface EditItemModalProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-interface FieldErrors {
-  itemId?: string;
-  itemDesc?: string;
-  itemQty?: string;
-  itemUom?: string;
-  itemSloc?: string;
-  itemIh?: string;
-}
-
 export default function EditItemModal({
   slocs,
   ihs,
@@ -73,114 +71,81 @@ export default function EditItemModal({
 }: EditItemModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [itemSloc, setItemSloc] = useState(item?.itemSloc || "");
-  const [itemIh, setItemIh] = useState(item?.itemIh || "");
   const router = useRouter();
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
   const setOpen = isControlled ? controlledOnOpenChange || (() => {}) : setInternalOpen;
 
-  // Update form when item changes
+  const defaultValues = useMemo(
+    () => ({
+      itemId: item?.itemId ?? "",
+      itemDesc: item?.itemDesc ?? "",
+      // Let Zod coerce quantity from string; default to empty string in the input
+      itemQty: item?.itemQty ?? undefined,
+      itemUom: item?.itemUom ?? "",
+      itemSloc: item?.itemSloc ?? "",
+      itemIh: item?.itemIh ?? "",
+      itemRemarks: item?.itemRemarks ?? undefined,
+      itemPurchaseDate: item?.itemPurchaseDate ?? undefined,
+      itemRfpNumber: item?.itemRfpNumber ?? undefined,
+      itemImage: item?.itemImage ?? undefined,
+    }),
+    [item],
+  );
+
+  const form = useForm({
+    resolver: zodResolver(
+      mode === "edit" ? EditItemClientSchema : NewItemClientSchema,
+    ),
+    defaultValues,
+  });
+
+  // Keep form in sync when editing a different item
   useEffect(() => {
-    if (item) {
-      setItemSloc(item.itemSloc);
-      setItemIh(item.itemIh);
-    } else {
-      setItemSloc("");
-      setItemIh("");
-    }
-  }, [item]);
+    form.reset(defaultValues);
+  }, [defaultValues, form]);
 
-  function parseErrorToField(error: string): FieldErrors {
-    const errors: FieldErrors = {};
-    
-    if (error.includes("Item ID")) {
-      if (error.includes("already exists")) {
-        errors.itemId = error;
-      } else {
-        errors.itemId = "Item ID is required";
-      }
-    } else if (error.includes("Description")) {
-      errors.itemDesc = "Description is required";
-    } else if (error.includes("Quantity")) {
-      errors.itemQty = error.includes("valid") 
-        ? "Quantity must be a valid positive number"
-        : "Quantity is required";
-    } else if (error.includes("Unit of Measure")) {
-      errors.itemUom = "Unit of Measure is required";
-    } else if (error.includes("Storage Location")) {
-      errors.itemSloc = "Storage Location is required";
-    } else if (error.includes("Inventory Holder")) {
-      errors.itemIh = "Inventory Holder is required";
-    }
-    
-    return errors;
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    setFieldErrors({});
-    
-    const errors: FieldErrors = {};
-    const itemId = formData.get("itemId") as string;
-    const itemDesc = formData.get("itemDesc") as string;
-    const itemQty = formData.get("itemQty") as string;
-    const itemUom = formData.get("itemUom") as string;
-
-    // Validate all required fields
-    if (!itemId || itemId.trim() === "") {
-      errors.itemId = "Item ID is required";
-    }
-    if (!itemDesc || itemDesc.trim() === "") {
-      errors.itemDesc = "Description is required";
-    }
-    if (!itemQty || itemQty.trim() === "") {
-      errors.itemQty = "Quantity is required";
-    }
-    if (!itemUom || itemUom.trim() === "") {
-      errors.itemUom = "Unit of Measure is required";
-    }
-    if (!itemSloc || itemSloc.trim() === "") {
-      errors.itemSloc = "Storage Location is required";
-    }
-    if (!itemIh || itemIh.trim() === "") {
-      errors.itemIh = "Inventory Holder is required";
-    }
-
-    // If there are validation errors, show them and stop
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-      return;
-    }
-
+  async function onSubmit(values: Record<string, unknown>) {
     setIsSubmitting(true);
-    // Add the select values to formData
-    formData.append("itemSloc", itemSloc);
-    formData.append("itemIh", itemIh);
-    
-    const result = mode === "edit" && item
-      ? await updateItem(item.itemId, formData)
-      : await createItem(formData);
-    
+
+    const formData = objectToFormData(values);
+
+    const result =
+      mode === "edit" && item
+        ? await updateItem(item.itemId, formData)
+        : await createItem(formData);
+
     setIsSubmitting(false);
 
     if (result.success) {
-      toast.success(`Item ${mode === "edit" ? "updated" : "created"} successfully!`);
+      toast.success(
+        `Item ${mode === "edit" ? "updated" : "created"} successfully!`,
+      );
       setOpen(false);
-      setItemSloc("");
-      setItemIh("");
-      setFieldErrors({});
       router.refresh();
+      return;
+    }
+
+    const errorMessage =
+      result.error ||
+      `Failed to ${mode === "edit" ? "update" : "create"} item`;
+
+    // Map known server-side validation errors to fields where possible
+    if (errorMessage.includes("Item ID")) {
+      form.setError("itemId", { message: errorMessage });
+    } else if (errorMessage.includes("Description")) {
+      form.setError("itemDesc", { message: errorMessage });
+    } else if (errorMessage.includes("Quantity")) {
+      form.setError("itemQty", { message: errorMessage });
+    } else if (errorMessage.includes("Unit of Measure")) {
+      form.setError("itemUom", { message: errorMessage });
+    } else if (errorMessage.includes("Storage Location")) {
+      form.setError("itemSloc", { message: errorMessage });
+    } else if (errorMessage.includes("Inventory Holder")) {
+      form.setError("itemIh", { message: errorMessage });
     } else {
-      const serverErrors = parseErrorToField(result.error || `Failed to ${mode === "edit" ? "update" : "create"} item`);
-      if (Object.keys(serverErrors).length > 0) {
-        setFieldErrors(serverErrors);
-      } else {
-        toast.error(result.error || `Failed to ${mode === "edit" ? "update" : "create"} item`);
-      }
+      toast.error(errorMessage);
     }
   }
 
@@ -188,14 +153,7 @@ export default function EditItemModal({
     setOpen(newOpen);
     if (!newOpen) {
       // Reset form when closing
-      if (item) {
-        setItemSloc(item.itemSloc);
-        setItemIh(item.itemIh);
-      } else {
-        setItemSloc("");
-        setItemIh("");
-      }
-      setFieldErrors({});
+      form.reset(defaultValues);
     }
   };
 
@@ -222,212 +180,246 @@ export default function EditItemModal({
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       {!trigger && <DialogTrigger asChild>{defaultTrigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-[600px]">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>{mode === "edit" ? "Edit Item" : "Add New Item"}</DialogTitle>
-            <DialogDescription>
-              {mode === "edit"
-                ? "Update the details of this item."
-                : "Fill in the details to add a new item to the catalogue."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="itemId">NUSC SN *</Label>
-              <Input
-                id="itemId"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <DialogHeader>
+              <DialogTitle>
+                {mode === "edit" ? "Edit Item" : "Add New Item"}
+              </DialogTitle>
+              <DialogDescription>
+                {mode === "edit"
+                  ? "Update the details of this item."
+                  : "Fill in the details to add a new item to the catalogue."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <FormField
+                control={form.control}
                 name="itemId"
-                placeholder="Enter NUSC serial number"
-                defaultValue={item?.itemId || ""}
-                className={fieldErrors.itemId ? "border-red-500" : ""}
-                onChange={() => {
-                  if (fieldErrors.itemId) {
-                    setFieldErrors({ ...fieldErrors, itemId: undefined });
-                  }
-                }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>NUSC SN *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter NUSC serial number"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {fieldErrors.itemId && (
-                <p className="text-sm text-red-600">{fieldErrors.itemId}</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="itemDesc">Description *</Label>
-              <Input
-                id="itemDesc"
+
+              <FormField
+                control={form.control}
                 name="itemDesc"
-                placeholder="Enter item description"
-                defaultValue={item?.itemDesc || ""}
-                className={fieldErrors.itemDesc ? "border-red-500" : ""}
-                onChange={() => {
-                  if (fieldErrors.itemDesc) {
-                    setFieldErrors({ ...fieldErrors, itemDesc: undefined });
-                  }
-                }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter item description"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {fieldErrors.itemDesc && (
-                <p className="text-sm text-red-600">{fieldErrors.itemDesc}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="itemQty">Quantity *</Label>
-                <Input
-                  id="itemQty"
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
                   name="itemQty"
-                  type="number"
-                  placeholder="0"
-                  defaultValue={item?.itemQty || ""}
-                  className={fieldErrors.itemQty ? "border-red-500" : ""}
-                  onChange={() => {
-                    if (fieldErrors.itemQty) {
-                      setFieldErrors({ ...fieldErrors, itemQty: undefined });
-                    }
-                  }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantity *</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={(field.value as string | number | readonly string[] | undefined) ?? ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                <p className="text-sm text-red-600 min-h-[20px]">
-                  {fieldErrors.itemQty || "\u00A0"}
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="itemUom">Unit of Measure *</Label>
-                <Input
-                  id="itemUom"
+                <FormField
+                  control={form.control}
                   name="itemUom"
-                  placeholder="e.g., pcs, kg, m"
-                  defaultValue={item?.itemUom || ""}
-                  className={fieldErrors.itemUom ? "border-red-500" : ""}
-                  onChange={() => {
-                    if (fieldErrors.itemUom) {
-                      setFieldErrors({ ...fieldErrors, itemUom: undefined });
-                    }
-                  }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unit of Measure *</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., pcs, kg, m"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                <p className="text-sm text-red-600 min-h-[20px]">
-                  {fieldErrors.itemUom || "\u00A0"}
-                </p>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="itemSloc">Storage Location *</Label>
-                <Select 
-                  value={itemSloc} 
-                  onValueChange={(value) => {
-                    setItemSloc(value);
-                    if (fieldErrors.itemSloc) {
-                      setFieldErrors({ ...fieldErrors, itemSloc: undefined });
-                    }
-                  }}
-                >
-                  <SelectTrigger 
-                    id="itemSloc"
-                    className={fieldErrors.itemSloc ? "border-red-500" : ""}
-                  >
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {slocs.map((sloc) => (
-                      <SelectItem key={sloc.slocId} value={sloc.slocId}>
-                        {sloc.slocName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-red-600 min-h-[20px]">
-                  {fieldErrors.itemSloc || "\u00A0"}
-                </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="itemSloc"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Storage Location *</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {slocs.map((sloc) => (
+                              <SelectItem
+                                key={sloc.slocId}
+                                value={sloc.slocId}
+                              >
+                                {sloc.slocName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="itemIh"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Inventory Holder *</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select holder" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ihs.map((ih) => (
+                              <SelectItem key={ih.ihId} value={ih.ihId}>
+                                {ih.ihName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="itemIh">Inventory Holder *</Label>
-                <Select 
-                  value={itemIh} 
-                  onValueChange={(value) => {
-                    setItemIh(value);
-                    if (fieldErrors.itemIh) {
-                      setFieldErrors({ ...fieldErrors, itemIh: undefined });
-                    }
-                  }}
-                >
-                  <SelectTrigger 
-                    id="itemIh"
-                    className={fieldErrors.itemIh ? "border-red-500" : ""}
-                  >
-                    <SelectValue placeholder="Select holder" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ihs.map((ih) => (
-                      <SelectItem key={ih.ihId} value={ih.ihId}>
-                        {ih.ihName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-red-600 min-h-[20px]">
-                  {fieldErrors.itemIh || "\u00A0"}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="itemPurchaseDate">Purchase Date</Label>
-                <Input
-                  id="itemPurchaseDate"
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
                   name="itemPurchaseDate"
-                  type="date"
-                  defaultValue={formatDateForInput(item?.itemPurchaseDate || null)}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Purchase Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          value={field.value ? formatDateForInput(field.value as Date) : ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="itemRfpNumber">RFP Number</Label>
-                <Input
-                  id="itemRfpNumber"
+                <FormField
+                  control={form.control}
                   name="itemRfpNumber"
-                  placeholder="Enter RFP number"
-                  defaultValue={item?.itemRfpNumber || ""}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>RFP Number</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter RFP number"
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="itemImage">Image URL</Label>
-              <Input
-                id="itemImage"
+
+              <FormField
+                control={form.control}
                 name="itemImage"
-                type="url"
-                placeholder="https://example.com/image.jpg"
-                defaultValue={item?.itemImage || ""}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Image URL</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="url"
+                        placeholder="https://example.com/image.jpg"
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="itemRemarks">Remarks</Label>
-              <Textarea
-                id="itemRemarks"
+
+              <FormField
+                control={form.control}
                 name="itemRemarks"
-                placeholder="Enter any additional remarks"
-                rows={3}
-                defaultValue={item?.itemRemarks || ""}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Remarks</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter any additional remarks"
+                        rows={3}
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
-                ? mode === "edit"
-                  ? "Updating..."
-                  : "Adding..."
-                : mode === "edit"
-                ? "Update Item"
-                : "Add Item"}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting
+                  ? mode === "edit"
+                    ? "Updating..."
+                    : "Adding..."
+                  : mode === "edit"
+                  ? "Update Item"
+                  : "Add Item"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

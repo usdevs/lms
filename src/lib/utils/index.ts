@@ -19,3 +19,19 @@ export const formDataToObject = (formData: FormData) => {
   return obj;
 };
 
+export const objectToFormData = (values: Record<string, unknown>) => {
+  const formData = new FormData();
+
+  Object.entries(values).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+
+    if (value instanceof Date) {
+      formData.append(key, value.toISOString());
+    } else {
+      formData.append(key, String(value));
+    }
+  });
+
+  return formData;
+};
+
