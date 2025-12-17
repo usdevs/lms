@@ -3,15 +3,62 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+}
+
+// Authentication & Authorization Models
+
+enum UserRole {
+  REQUESTER // Can view catalogue, create loan requests
+  IH // Can view catalogue, approve loans for their IHs
+  LOGS // Full access: manage items, approve all loans
+  ADMIN // Super admin: manage users, configure system
+}
+
+enum IHType {
+  INDIVIDUAL // Single person
+  GROUP // IG/club/committee
+  DEPARTMENT // School department
+}
+
+model User {
+  userId     Int      @id @default(autoincrement()) @map("user_id")
+  telegramId BigInt   @unique @map("telegram_id")
+  username   String?  @map("username")
+  firstName  String   @map("first_name")
+  lastName   String?  @map("last_name")
+  photoUrl   String?  @map("photo_url")
+  role       UserRole @default(REQUESTER)
+  nusnetId   String?  @unique @map("nusnet_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  ihMemberships IHMember[] // IHs this user is a member of
+
+  @@map("user")
+}
+
+model IHMember {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  ihId      String   @map("ih_id")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  ih   IH   @relation(fields: [ihId], references: [ihId], onDelete: Cascade)
+
+  @@unique([userId, ihId])
+  @@map("ih_member")
 }
 
 model IH {
   ihId        String           @id @map("ih_id")
   ihName      String           @map("ih_name")
-  ihPocTele   String?          @map("ih_poc_tele")
+  ihType      IHType           @default(INDIVIDUAL) @map("ih_type")
+  ihPocTele   String?          @map("ih_poc_tele") // Deprecated: use IHMember instead
+  members     IHMember[] // Multiple POCs via IHMember
   items       Item[]           @relation("ItemIH")
   loanDetails LoanItemDetail[] @relation("LoanItemDetailIH")
 
