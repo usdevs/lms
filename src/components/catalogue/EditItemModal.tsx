@@ -73,6 +73,9 @@ export default function EditItemModal({
 }: EditItemModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File |null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(item?.itemImage ?? null);
+  const [deleteImage, setDeleteImage] = useState(false);
   const router = useRouter();
 
   const isControlled = controlledOpen !== undefined;
@@ -81,6 +84,7 @@ export default function EditItemModal({
 
   const defaultValues = useMemo(
     () => ({
+      itemId: item?.itemId, // Needed to submit form  
       nuscSn: item?.nuscSn ?? "",
       itemDesc: item?.itemDesc ?? "",
       // Let Zod coerce quantity from string; default to empty string in the input
@@ -91,7 +95,7 @@ export default function EditItemModal({
       itemRemarks: item?.itemRemarks ?? undefined,
       itemPurchaseDate: item?.itemPurchaseDate ?? undefined,
       itemRfpNumber: item?.itemRfpNumber ?? undefined,
-      itemImage: item?.itemImage ?? undefined,
+      itemImage: item?.itemImage ?? undefined, 
     }),
     [item],
   );
@@ -111,7 +115,26 @@ export default function EditItemModal({
   async function onSubmit(values: Record<string, unknown>) {
     setIsSubmitting(true);
 
-    const formData = objectToFormData(values);
+    let photoUrl = item?.itemImage ?? null;
+    
+    if (selectedFile) {
+      const uploadFormData = new FormData();
+      uploadFormData.append("photo", selectedFile);
+
+      const uploadRes = await fetch("/api/items/upload", {
+        method: "POST",
+        body: uploadFormData,
+      });
+
+      const uploadData = await uploadRes.json();
+      if (uploadData.url) {
+        const origin = window.location.origin;
+        photoUrl = `${origin}${uploadData.url}`;  // Valid Url
+      } 
+    } 
+
+    const finalValues = {...values, ...(photoUrl ? { itemImage: photoUrl } : ""), ...(deleteImage ? {deleteImage: true } : {})};
+    const formData = objectToFormData(finalValues);
 
     const result =
       mode === "edit" && item
@@ -150,12 +173,14 @@ export default function EditItemModal({
       toast.error(errorMessage);
     }
   }
-
+  
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     if (!newOpen) {
       // Reset form when closing
       form.reset(defaultValues);
+      setSelectedFile(null);
+      setPreviewUrl(item?.itemImage ?? null);
     }
   };
 
@@ -176,7 +201,7 @@ export default function EditItemModal({
       Edit
     </Button>
   );
-
+  
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
@@ -272,13 +297,13 @@ export default function EditItemModal({
                   name="itemSloc"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Storage Location *</FormLabel>
+                      <FormLabel htmlFor="itemSloc">Storage Location *</FormLabel>
                       <FormControl>
                         <Select
                           value={field.value}
                           onValueChange={field.onChange}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id="itemSloc">
                             <SelectValue placeholder="Select location" />
                           </SelectTrigger>
                           <SelectContent>
@@ -302,13 +327,13 @@ export default function EditItemModal({
                   name="itemIh"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Inventory Holder *</FormLabel>
+                      <FormLabel htmlFor="itemIh">Inventory Holder *</FormLabel>
                       <FormControl>
                         <Select
                           value={field.value}
                           onValueChange={field.onChange}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id="itemIh">
                             <SelectValue placeholder="Select holder" />
                           </SelectTrigger>
                           <SelectContent>
@@ -368,14 +393,42 @@ export default function EditItemModal({
                 name="itemImage"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL</FormLabel>
+                    <FormLabel htmlFor="itemImage">Upload Image</FormLabel> 
                     <FormControl>
                       <Input
-                        type="url"
-                        placeholder="https://example.com/image.jpg"
-                        value={field.value ?? ""}
-                        onChange={field.onChange}
+                        id="itemImage" 
+                        type="file" 
+                        accept="image/"
+                        onChange={ (e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          setSelectedFile(file);
+                          setPreviewUrl(file ? URL.createObjectURL(file) : item?.itemImage ?? null);
+                        }}
+                        className="border rounded-md p-1" 
                       />
+                      {previewUrl && (
+                        <div className="flex items-end gap-2 mt-2">
+                          <img
+                            src={previewUrl}
+                            alt="Preview"
+                            className="h-32 w-32 object-cover rounded-md border"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="bg-[#0d0a03] hover:bg-[#64615c] text-white"
+                            onClick={() => {
+                              setSelectedFile(null);
+                              setPreviewUrl(null);
+                              field.onChange("");
+                              setDeleteImage(true);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>

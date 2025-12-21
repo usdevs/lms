@@ -92,6 +92,8 @@ export async function updateItem(itemId: number, formData: FormData) {
       error: "Unknown error occurred. Please contact admin.",
     };
   }
+  
+  const deleteImage = formData.get("deleteImage") === "true"; // Checks whether to delete   
 
   const newNuscSn = data.nuscSn.trim();
 
@@ -108,6 +110,28 @@ export async function updateItem(itemId: number, formData: FormData) {
   }
 
   try {
+    // Delete image 
+    const fs = require("fs");
+    const path = require("path");
+
+    if (deleteImage && data.itemImage) {
+      try {
+        const filePath = path.join(
+          process.cwd(),
+          "public",
+          data.itemImage.replace(/^\/+/, "")
+        );
+
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log("Deleted old image:", filePath);
+        }
+        data.itemImage = null; // Clear from database
+      } catch (err) {
+        console.error("Failed to delete old image:", err);
+      }
+    }
+
     await prisma.item.update({
       where: { itemId: itemId as any },
       data: {
@@ -184,4 +208,3 @@ export async function deleteItem(itemId: number) {
   revalidatePath("/catalogue");
   return { success: true };
 }
-
