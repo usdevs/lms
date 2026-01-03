@@ -1,7 +1,7 @@
 "use client";
 
-import { ChangeEvent, useState, useEffect } from "react";
-import { Edit, Search } from "lucide-react";
+import { ChangeEvent, useState, useMemo } from "react";
+import { Search, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import EditItemModal from "./EditItemModal";
 import DeleteItemButton from "./DeleteItemButton";
@@ -14,40 +14,86 @@ interface CatalogueProps {
 }
 
 export default function Catalogue({ items: initialItems, slocs, ihs }: CatalogueProps) {
+  // Filters
   const [searchString, setSearchString] = useState("");
-  const [items, setItems] = useState(initialItems);
+  const [filterSloc, setFilterSloc] = useState<string>("");
+  const [filterHolder, setFilterHolder] = useState<string>("");
 
-  // Sync items when initialItems changes (e.g., after refresh)
-  useEffect(() => {
-    setItems(initialItems);
-  }, [initialItems]);
+  const filteredItems = useMemo(() => {
+    return initialItems.filter((item) => {
+      const matchesSearch = 
+        item.itemDesc.toLowerCase().includes(searchString.toLowerCase()) ||
+        item.nuscSn.toLowerCase().includes(searchString.toLowerCase()) ||
+        item.sloc.slocName.toLowerCase().includes(searchString.toLowerCase()) ||
+        item.ih.ihName.toLowerCase().includes(searchString.toLowerCase()) ||
+        (item.itemRemarks &&
+          item.itemRemarks.toLowerCase().includes(searchString.toLowerCase()))
+      
+      const matchesSloc = !filterSloc || item.sloc.slocName === filterSloc;
+      const matchesHolder = !filterHolder || item.ih.ihName === filterHolder;
+      return matchesSearch && matchesSloc && matchesHolder;
+    });
+  }, [initialItems, searchString, filterSloc, filterHolder]);
 
-  const filteredItems = items.filter(
-    (item) =>
-      item.itemDesc.toLowerCase().includes(searchString.toLowerCase()) ||
-      item.nuscSn.toLowerCase().includes(searchString.toLowerCase()) ||
-      item.sloc.slocName.toLowerCase().includes(searchString.toLowerCase()) ||
-      item.ih.ihName.toLowerCase().includes(searchString.toLowerCase()) ||
-      (item.itemRemarks &&
-        item.itemRemarks.toLowerCase().includes(searchString.toLowerCase()))
-  );
+  // Sort state
+  type SortOption = "name" | "quantity";
+  const [sortOption, setSortOption] = useState<SortOption>("name");
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const sortedFilteredItems = useMemo(() => {
+    return [...filteredItems].sort((a, b) => {
+      if (sortOption === "name") {
+        return sortAsc 
+          ? a.itemDesc.localeCompare(b.itemDesc)
+          : b.itemDesc.localeCompare(a.itemDesc);
+      }
+      if (sortOption === "quantity") {
+        return sortAsc
+          ? a.itemQty - b.itemQty
+          : b.itemQty - a.itemQty
+      }
+      return 0;
+    });
+  }, [filteredItems, sortOption, sortAsc]);
 
   const onInput = (ev: ChangeEvent<HTMLInputElement>) => {
     setSearchString(ev.target.value);
   };
+
+  const defaultFilters = {
+    searchString: "",
+    filterSloc: "",
+    filterHolder: "",
+    sortOption: "name" as SortOption,
+    sortAsc: true,
+  };
+  const resetFilters = () => {
+    setSearchString(defaultFilters.searchString);
+    setFilterSloc(defaultFilters.filterSloc);
+    setFilterHolder(defaultFilters.filterHolder);
+    setSortOption(defaultFilters.sortOption);
+    setSortAsc(defaultFilters.sortAsc);
+  };
+
+  // Check if any filter is not in default state
+  const hasActiveFilters = 
+    searchString !== defaultFilters.searchString ||
+    filterSloc !== defaultFilters.filterSloc ||
+    filterHolder !== defaultFilters.filterHolder ||
+    sortOption !== defaultFilters.sortOption ||
+    sortAsc !== defaultFilters.sortAsc;
 
   return (
     <div className="min-h-screen w-full bg-[#0C2C47] p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
-          <p className="text-white/80">{filteredItems.length} ITEMS</p>
+          <p className="text-white/80">{sortedFilteredItems.length} ITEMS</p>
         </div>
         <EditItemModal slocs={slocs} ihs={ihs} mode="add" />
       </div>
 
-      <div className="mb-8">
-        <h3 className="mb-3 font-semibold text-white">SEARCH</h3>
+      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
@@ -58,16 +104,75 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
             value={searchString}
           />
         </div>
-      </div>
+      <div className="flex gap-3 flex-wrap">
+      
+      {/*Reset Filters Button - only show when filters are active */}
+      {hasActiveFilters && (
+        <button
+           onClick={resetFilters}
+           className="h-9 rounded-md bg-white/20 px-4 text-white hover:bg-white/30 transition-colors flex items-center gap-2"
+         >
+           <RotateCcw className="h-4 w-4" />
+           Reset Filters
+        </button>
+      )}
 
-      {filteredItems.length === 0 ? (
+      <select
+           value={filterSloc}
+           onChange={(e) => setFilterSloc(e.target.value)}
+           className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
+         >
+           <option value="" className="text-black">All Locations</option>  {/*Default*/}
+           {slocs.map((s) => (
+             <option key={s.slocId} value={s.slocName} className="text-black">
+               {s.slocName}
+             </option>
+           ))}
+         </select>
+      
+      <select
+           value={filterHolder}
+           onChange={(e) => setFilterHolder(e.target.value)}
+           className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
+         >
+           <option value="" className="text-black">All Holders</option>  {/*Default*/}
+           {ihs.map((h) => (
+             <option key={h.ihId} value={h.ihName} className="text-black">
+               {h.ihName}
+             </option>
+           ))}
+         </select>
+
+      <select
+           value={sortOption}
+           onChange={(e) => setSortOption(e.target.value as SortOption)}
+           className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
+         >
+           <option value="name" className="text-black">Sort by Item Name</option>
+           <option value="quantity" className="text-black">Sort by Quantity</option>
+         </select>
+      
+        {/*Asc/Desc Button*/}
+         <button
+           onClick={() => {
+             setSortAsc(!sortAsc);
+           }}
+           className="h-9 rounded-md bg-white/20 px-4 text-white hover:bg-white/30 transition-colors"
+         >
+           {sortAsc ? "▲" : "▼"}
+         </button>
+       </div>
+      </div>
+     
+
+      {sortedFilteredItems.length === 0 ? (
         <div className="py-16 text-center text-white/80">
           <p className="mb-2 text-xl">No items found</p>
           <p>Try adjusting your search criteria</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredItems.map((item) => (
+          {sortedFilteredItems.map((item) => (
             <div
               key={item.itemId}
               className="flex flex-col rounded-lg bg-white p-6"
@@ -128,4 +233,3 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
     </div>
   );
 }
-
