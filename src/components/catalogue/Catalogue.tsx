@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useState, useEffect } from "react";
-import { Edit, Search } from "lucide-react";
+import { Search, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import EditItemModal from "./EditItemModal";
 import DeleteItemButton from "./DeleteItemButton";
@@ -14,7 +14,6 @@ interface CatalogueProps {
 }
 
 export default function Catalogue({ items: initialItems, slocs, ihs }: CatalogueProps) {
-  const [searchString, setSearchString] = useState("");
   const [items, setItems] = useState(initialItems);
 
   // Sync items when initialItems changes (e.g., after refresh)
@@ -52,6 +51,7 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
   };
   
   // Filters
+  const [searchString, setSearchString] = useState("");
   const [filterSloc, setFilterSloc] = useState<string>("");
   const [filterHolder, setFilterHolder] = useState<string>("");
 
@@ -73,6 +73,30 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
   const onInput = (ev: ChangeEvent<HTMLInputElement>) => {
     setSearchString(ev.target.value);
   };
+
+  const defaultFilters = {
+    searchString: "",
+    filterSloc: "",
+    filterHolder: "",
+    sortOption: "name" as SortOption,
+    sortAsc: true,
+  };
+  const resetFilters = () => {
+    setSearchString(defaultFilters.searchString);
+    setFilterSloc(defaultFilters.filterSloc);
+    setFilterHolder(defaultFilters.filterHolder);
+    setSortOption(defaultFilters.sortOption);
+    setSortAsc(defaultFilters.sortAsc);
+    sortItems(defaultFilters.sortOption, defaultFilters.sortAsc);
+  };
+
+  // Check if any filter is not in default state
+  const hasActiveFilters = 
+    searchString !== defaultFilters.searchString ||
+    filterSloc !== defaultFilters.filterSloc ||
+    filterHolder !== defaultFilters.filterHolder ||
+    sortOption !== defaultFilters.sortOption ||
+    sortAsc !== defaultFilters.sortAsc;
 
   return (
     <div className="min-h-screen w-full bg-[#0C2C47] p-8">
@@ -96,15 +120,26 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
           />
         </div>
       <div className="flex gap-3 flex-wrap">
+      
+      {/*Reset Filters Button - only show when filters are active */}
+      {hasActiveFilters && (
+        <button
+           onClick={resetFilters}
+           className="h-9 rounded-md bg-white/20 px-4 text-white hover:bg-white/30 transition-colors flex items-center gap-2"
+         >
+           <RotateCcw className="h-4 w-4" />
+           Reset Filters
+        </button>
+      )}
 
       <select
            value={filterSloc}
            onChange={(e) => setFilterSloc(e.target.value)}
            className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
          >
-           <option value="">All Locations</option>  {/*Default*/}
+           <option value="" className="text-black">All Locations</option>  {/*Default*/}
            {slocs.map((s) => (
-             <option key={s.slocId} value={s.slocName}>
+             <option key={s.slocId} value={s.slocName} className="text-black">
                {s.slocName}
              </option>
            ))}
@@ -115,9 +150,9 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
            onChange={(e) => setFilterHolder(e.target.value)}
            className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
          >
-           <option value="">All Holders</option>  {/*Default*/}
+           <option value="" className="text-black">All Holders</option>  {/*Default*/}
            {ihs.map((h) => (
-             <option key={h.ihId} value={h.ihName}>
+             <option key={h.ihId} value={h.ihName} className="text-black">
                {h.ihName}
              </option>
            ))}
@@ -128,8 +163,8 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
            onChange={onSortChange}
            className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
          >
-           <option value="name">Sort by Item Name</option>
-           <option value="quantity">Sort by Quantity</option>
+           <option value="name" className="text-black">Sort by Item Name</option>
+           <option value="quantity" className="text-black">Sort by Quantity</option>
          </select>
       
         {/*Asc/Desc Button*/}
