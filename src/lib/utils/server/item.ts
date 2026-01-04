@@ -40,3 +40,9 @@ export const getIHs = async () =>
 
 export type IHView = Awaited<ReturnType<typeof getIHs>>[number];
 
+// Type for paginated items API response
+export type PaginatedItemsResponse = {
+  items: ItemView[];
+  totalPages: number;
+  currentPage: number;
+};
