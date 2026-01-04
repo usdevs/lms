@@ -1,7 +1,7 @@
 "use client";
 
-import { ChangeEvent, useState, useMemo, useEffect } from "react";
-import { Search, RotateCcw } from "lucide-react";
+import { ChangeEvent, useState, useEffect, useCallback, useRef } from "react";
+import { Search, RotateCcw, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import EditItemModal from "./EditItemModal";
 import DeleteItemButton from "./DeleteItemButton";
@@ -20,6 +20,13 @@ interface CatalogueProps {
 type SortOption = "name" | "quantity";
 
 export default function Catalogue({ slocs, ihs }: CatalogueProps) {
+  // Filters and Sort (server-side)
+  const [searchString, setSearchString] = useState("");
+  const [filterSloc, setFilterSloc] = useState<string>("");
+  const [filterHolder, setFilterHolder] = useState<string>("");
+  const [sortOption, setSortOption] = useState<SortOption>("name");
+  const [sortAsc, setSortAsc] = useState(true);
+
   // Pagination
   const [items, setItems] = useState<ItemView[]>([]);
   const [page, setPage] = useState(1);
@@ -27,80 +34,101 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   const limit = 27;
   const [loading, setLoading] = useState(false);
 
-  const fetchItems = async (page: number) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/items?page=${page}&limit=${limit}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch items");
-      }
-      const data: PaginatedItemsResponse = await res.json();
+  const fetchItems = useCallback(
+    async (pageNum: number, resetItems = false) => {
+      setLoading(true);
+      try {
+        // Build query parameters
+        const params = new URLSearchParams({
+          page: pageNum.toString(),
+          limit: limit.toString(),
+          sort: sortOption,
+          asc: sortAsc.toString(),
+        });
 
-      setItems((prev) => [...prev, ...data.items]);
-      setTotalPages(data.totalPages);
-    } catch (err) {
-      console.error("Failed to fetch items", err);
-    } finally {
-      setLoading(false);
+        if (searchString) {
+          params.append("search", searchString);
+        }
+        if (filterSloc) {
+          // Find slocId from slocName
+          const sloc = slocs.find((s) => s.slocName === filterSloc);
+          if (sloc) {
+            params.append("sloc", sloc.slocId);
+          }
+        }
+        if (filterHolder) {
+          // Find ihId from ihName
+          const ih = ihs.find((h) => h.ihName === filterHolder);
+          if (ih) {
+            params.append("ih", ih.ihId);
+          }
+        }
+
+        const res = await fetch(`/api/items?${params.toString()}`);
+        if (!res.ok) {
+          throw new Error("Failed to fetch items");
+        }
+        const data: PaginatedItemsResponse = await res.json();
+
+        if (resetItems) {
+          setItems(data.items);
+        } else {
+          setItems((prev) => [...prev, ...data.items]);
+        }
+        setTotalPages(data.totalPages);
+      } catch (err) {
+        console.error("Failed to fetch items", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [searchString, filterSloc, filterHolder, sortOption, sortAsc, slocs, ihs]
+  );
+
+  // Ref for search input
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset and refetch when filters, sort, or searchString changes
+  // This auto-fetches on any filter change (filterSloc, filterHolder, sortOption, sortAsc)
+  // and also when searchString changes (which happens on Enter/blur)
+  useEffect(() => {
+    setPage(1);
+    setItems([]);
+    fetchItems(1, true);
+  }, [fetchItems]);
+
+  const updateSearchString = (newSearchString: string) => {
+    if (newSearchString === searchString) {
+      return;
+    }
+    setSearchString(newSearchString);
+  };
+
+  const onSearchKeyDown = (ev: React.KeyboardEvent<HTMLInputElement>) => {
+    if (ev.key === "Enter") {
+      ev.currentTarget.blur(); // Unfocus to trigger blur handler
+      updateSearchString(ev.currentTarget.value);
     }
   };
 
-  useEffect(() => {
-    fetchItems(1); // Load first page automatically
-  }, []);
+  const onSearchBlur = (ev: React.FocusEvent<HTMLInputElement>) => {
+    updateSearchString(ev.currentTarget.value);
+  };
 
-  // Filters
-  const [searchString, setSearchString] = useState("");
-  const [filterSloc, setFilterSloc] = useState<string>("");
-  const [filterHolder, setFilterHolder] = useState<string>("");
-
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchesSearch =
-        item.itemDesc.toLowerCase().includes(searchString.toLowerCase()) ||
-        item.nuscSn.toLowerCase().includes(searchString.toLowerCase()) ||
-        item.sloc.slocName.toLowerCase().includes(searchString.toLowerCase()) ||
-        item.ih.ihName.toLowerCase().includes(searchString.toLowerCase()) ||
-        (item.itemRemarks &&
-          item.itemRemarks.toLowerCase().includes(searchString.toLowerCase()));
-
-      const matchesSloc = !filterSloc || item.sloc.slocName === filterSloc;
-      const matchesHolder = !filterHolder || item.ih.ihName === filterHolder;
-      return matchesSearch && matchesSloc && matchesHolder;
-    });
-  }, [items, searchString, filterSloc, filterHolder]);
-
-  // Sort state
-  const [sortOption, setSortOption] = useState<SortOption>("name");
-  const [sortAsc, setSortAsc] = useState(true);
-
-  const sortedFilteredItems = useMemo(() => {
-    return [...filteredItems].sort((a, b) => {
-      if (sortOption === "name") {
-        return sortAsc
-          ? a.itemDesc.localeCompare(b.itemDesc)
-          : b.itemDesc.localeCompare(a.itemDesc);
-      }
-      if (sortOption === "quantity") {
-        return sortAsc ? a.itemQty - b.itemQty : b.itemQty - a.itemQty;
-      }
-      return 0;
-    });
-  }, [filteredItems, sortOption, sortAsc]);
-
-  const onInput = (ev: ChangeEvent<HTMLInputElement>) => {
-    setSearchString(ev.target.value);
+  const clearSearch = () => {
+    setSearchString("");
+    if (searchInputRef.current) {
+      searchInputRef.current.value = "";
+    }
   };
 
   const defaultFilters = {
-    searchString: "",
     filterSloc: "",
     filterHolder: "",
     sortOption: "name" as SortOption,
     sortAsc: true,
   };
   const resetFilters = () => {
-    setSearchString(defaultFilters.searchString);
     setFilterSloc(defaultFilters.filterSloc);
     setFilterHolder(defaultFilters.filterHolder);
     setSortOption(defaultFilters.sortOption);
@@ -109,7 +137,6 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
 
   // Check if any filter is not in default state
   const hasActiveFilters = 
-    searchString !== defaultFilters.searchString ||
     filterSloc !== defaultFilters.filterSloc ||
     filterHolder !== defaultFilters.filterHolder ||
     sortOption !== defaultFilters.sortOption ||
@@ -120,7 +147,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
-          <p className="text-white/80">{sortedFilteredItems.length} ITEMS</p>
+          <p className="text-white/80">{items.length} ITEMS</p>
         </div>
         <EditItemModal slocs={slocs} ihs={ihs} mode="add" />
       </div>
@@ -129,12 +156,23 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
+            ref={searchInputRef}
             type="search"
             placeholder="Search items by description, ID, location..."
-            className="w-full pl-10 text-white placeholder:text-white/60 bg-white/10 border-white/20 focus-visible:ring-white/50"
-            onChange={onInput}
-            value={searchString}
+            className="w-full pl-10 pr-10 text-white placeholder:text-white/60 bg-white/10 border-white/20 focus-visible:ring-white/50 [&::-webkit-search-cancel-button]:hidden"
+            onKeyDown={onSearchKeyDown}
+            onBlur={onSearchBlur}
           />
+          {searchString && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white hover:text-white/80 transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       <div className="flex gap-3 flex-wrap">
       
@@ -197,14 +235,14 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
       </div>
      
 
-      {sortedFilteredItems.length === 0 ? (
+      {items.length === 0 && !loading ? (
         <div className="py-16 text-center text-white/80">
           <p className="mb-2 text-xl">No items found</p>
           <p>Try adjusting your search criteria</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sortedFilteredItems.map((item) => (
+          {items.map((item) => (
             <div
               key={item.itemId}
               className="flex flex-col rounded-lg bg-white p-6"
