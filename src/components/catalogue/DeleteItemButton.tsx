@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -30,29 +29,20 @@ export default function DeleteItemButton({
   itemDesc,
 }: DeleteItemButtonProps) {
   const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
   async function handleDelete() {
-    // Optimistic update - remove from UI immediately
-
-    // Perform actual deletion in background (by primary key)
+    setIsDeleting(true);
     const result = await deleteItem(itemId);
-
-    setOpen(false);
+    setIsDeleting(false);
 
     if (result.success) {
+      setOpen(false);
       toast.success("Item deleted successfully!");
-      // Use startTransition for non-blocking refresh
-      startTransition(() => {
-        router.refresh();
-      });
+      router.refresh();
     } else {
       toast.error(result.error || "Failed to delete item");
-      // If deletion failed, refresh to restore the item
-      startTransition(() => {
-        router.refresh();
-      });
     }
   }
 
@@ -76,13 +66,13 @@ export default function DeleteItemButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <Button
             onClick={handleDelete}
-            disabled={isPending}
-            className="bg-red-600 hover:bg-red-700"
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700 text-white"
           >
-            {isPending ? (
+            {isDeleting ? (
               <div className="flex items-center gap-2">
                 <Spinner className="size-4" />
                 <span>Deleting...</span>
@@ -90,7 +80,7 @@ export default function DeleteItemButton({
             ) : (
               "Delete"
             )}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

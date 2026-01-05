@@ -34,7 +34,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 27;
+  const limit = 28;
   const [loading, setLoading] = useState(false);
 
   const fetchItems = useCallback(
@@ -76,7 +76,11 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
         if (resetItems) {
           setItems(data.items);
         } else {
-          setItems((prev) => [...prev, ...data.items]);
+          setItems((prev) => {
+            const existingIds = new Set(prev.map(item => item.itemId));
+            const newItems = data.items.filter(item => !existingIds.has(item.itemId));
+            return [...prev, ...newItems];
+          });
         }
         setTotalPages(data.totalPages);
         setTotalItems(data.totalItems);
