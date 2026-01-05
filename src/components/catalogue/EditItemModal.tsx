@@ -60,6 +60,7 @@ interface EditItemModalProps {
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
 export default function EditItemModal({
@@ -70,6 +71,7 @@ export default function EditItemModal({
   trigger,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
+  onSuccess,
 }: EditItemModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,7 +150,11 @@ export default function EditItemModal({
         `Item ${mode === "edit" ? "updated" : "created"} successfully!`,
       );
       setOpen(false);
-      router.refresh();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.refresh();
+      }
       return;
     }
 

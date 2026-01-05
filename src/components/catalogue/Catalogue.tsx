@@ -1,8 +1,9 @@
 "use client";
 
 import { ChangeEvent, useState, useEffect, useCallback, useRef } from "react";
-import { Search, RotateCcw, X } from "lucide-react";
+import { Search, RotateCcw, X, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import EditItemModal from "./EditItemModal";
 import DeleteItemButton from "./DeleteItemButton";
 import type {
@@ -282,11 +283,13 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                   <span className="font-semibold">Inventory Holder:</span>{" "}
                   {item.ih.ihName}
                 </p>
-                {item.itemRemarks && (
-                  <p className="mt-3 text-xs leading-relaxed text-[#A1A1A1]">
-                    {item.itemRemarks}
-                  </p>
-                )}
+                <p className="mt-3 text-xs leading-relaxed text-[#A1A1A1]">
+                  {item.itemRemarks ? (
+                    item.itemRemarks
+                  ) : (
+                    <span className="text-gray-400 italic">-</span>
+                  )}
+                </p>
               </div>
               <div className="flex justify-end gap-2">
                 <EditItemModal
@@ -306,6 +309,11 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                     itemRfpNumber: item.itemRfpNumber,
                     itemImage: item.itemImage,
                   }}
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  }
                 />
                 <DeleteItemButton
                   itemId={Number(item.itemId)}
@@ -318,7 +326,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
       )}
 
       {page < totalPages && (
-        <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex justify-center">
           <button
           type="button"
           onClick={() => {
@@ -331,7 +339,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           >
             {loading ? "Loading..." : "Load More"}
           </button>
-        </div>      
+            </div>
       )}
     </div>
   );

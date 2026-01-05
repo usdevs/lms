@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -62,7 +63,7 @@ export default function DeleteItemButton({
           size="sm"
           className="mt-auto text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
         >
-          Delete
+          <Trash2 className="h-4 w-4" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
