@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {LoansTable} from "@/components/loans/LoansTable";
+import { LoansTable } from "@/components/loans/LoansTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,8 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Link from 'next/link';
+import { ArrowLeft } from "lucide-react"; 
 
-export default function LoanDashboardPage() {
+export default function LoansPage() {
+  // 1. Data and State
   const allLoans = [
     { id: 101, name: "John Doe", status: "Active", date: "2024-01-15" },
     { id: 102, name: "Jane Smith", status: "Returned", date: "2024-01-10" },
@@ -25,6 +28,7 @@ export default function LoanDashboardPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // 2. Filtering Logic
   const filteredLoans = allLoans.filter((loan) => {
     const statusMatches = statusFilter === "All" || loan.status === statusFilter;
     const loanDate = new Date(loan.date);
@@ -37,9 +41,20 @@ export default function LoanDashboardPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
+      {/* BACK BUTTON */}
+      <Link 
+        href="/catalogue" 
+        className="flex items-center text-sm text-gray-500 hover:text-black mb-2 transition-colors w-fit"
+      >
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Back to Catalogue
+      </Link>
+
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Loan Dashboard</h1>
-        <Button>+ New Request</Button>
+        <Link href="/loans/NewRequest">
+          <Button>+ New Request</Button>
+        </Link>
       </div>
 
       <div className="bg-card p-4 rounded-lg border shadow-sm flex flex-wrap gap-4 items-end">
@@ -56,6 +71,7 @@ export default function LoanDashboardPage() {
             </SelectContent>
           </Select>
         </div>
+        
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium leading-none">Start Date</label>
           <Input
@@ -65,6 +81,7 @@ export default function LoanDashboardPage() {
             onChange={(e) => setStartDate(e.target.value)}
           />
         </div>
+        
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium leading-none">End Date</label>
           <Input
@@ -74,6 +91,7 @@ export default function LoanDashboardPage() {
             onChange={(e) => setEndDate(e.target.value)}
           />
         </div>
+
         <Button
           variant="ghost"
           onClick={() => {
@@ -87,6 +105,7 @@ export default function LoanDashboardPage() {
         </Button>
       </div>
 
+      {/* TABLE */}
       <LoansTable data={filteredLoans} />
     </div>
   );
