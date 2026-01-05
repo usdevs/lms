@@ -99,6 +99,7 @@ export const GET = async (req: Request) => {
       items,
       totalPages,
       currentPage: page,
+      totalItems,
     };
 
     return NextResponse.json(response);

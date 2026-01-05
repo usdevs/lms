@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,7 +82,14 @@ export default function DeleteItemButton({
             disabled={isPending}
             className="bg-red-600 hover:bg-red-700"
           >
-            {isPending ? "Deleting..." : "Delete"}
+            {isPending ? (
+              <div className="flex items-center gap-2">
+                <Spinner className="size-4" />
+                <span>Deleting...</span>
+              </div>
+            ) : (
+              "Delete"
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

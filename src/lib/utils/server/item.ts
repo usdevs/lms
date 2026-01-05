@@ -45,4 +45,5 @@ export type PaginatedItemsResponse = {
   items: ItemView[];
   totalPages: number;
   currentPage: number;
+  totalItems: number;
 };

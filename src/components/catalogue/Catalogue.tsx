@@ -4,6 +4,7 @@ import { ChangeEvent, useState, useEffect, useCallback, useRef } from "react";
 import { Search, RotateCcw, X, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import EditItemModal from "./EditItemModal";
 import DeleteItemButton from "./DeleteItemButton";
 import type {
@@ -32,6 +33,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   const [items, setItems] = useState<ItemView[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const limit = 27;
   const [loading, setLoading] = useState(false);
 
@@ -77,6 +79,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           setItems((prev) => [...prev, ...data.items]);
         }
         setTotalPages(data.totalPages);
+        setTotalItems(data.totalItems);
       } catch (err) {
         console.error("Failed to fetch items", err);
       } finally {
@@ -88,6 +91,8 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
 
   // Ref for search input
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // Ref for infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Reset and refetch when filters, sort, or searchString changes
   // This auto-fetches on any filter change (filterSloc, filterHolder, sortOption, sortAsc)
@@ -95,8 +100,36 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   useEffect(() => {
     setPage(1);
     setItems([]);
+    setTotalItems(0);
     fetchItems(1, true);
   }, [fetchItems]);
+
+  // Infinite scroll: auto-load when scrolling near bottom
+  useEffect(() => {
+    if (page >= totalPages || loading) return;
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !loading && page < totalPages) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          fetchItems(nextPage);
+        }
+      },
+      {
+        rootMargin: "100px", // Start loading 100px before reaching the sentinel
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [page, totalPages, loading, fetchItems]);
 
   const updateSearchString = (newSearchString: string) => {
     if (newSearchString === searchString) {
@@ -148,7 +181,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
-          <p className="text-white/80">{items.length} ITEMS</p>
+          <p className="text-white/80">{totalItems} ITEMS</p>
         </div>
         <EditItemModal slocs={slocs} ihs={ihs} mode="add" />
       </div>
@@ -241,6 +274,13 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           <p className="mb-2 text-xl">No items found</p>
           <p>Try adjusting your search criteria</p>
         </div>
+      ) : items.length === 0 && loading ? (
+        <div className="py-16 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Spinner className="size-8 text-white/60" />
+            <p className="text-white/60">Loading items...</p>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
@@ -325,21 +365,17 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
         </div>
       )}
 
-      {page < totalPages && (
-            <div className="mt-6 flex justify-center">
-          <button
-          type="button"
-          onClick={() => {
-            const nextPage = page + 1;
-            setPage(nextPage);
-            fetchItems(nextPage);
-          }}
-          className="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
-          disabled={loading}
-          >
-            {loading ? "Loading..." : "Load More"}
-          </button>
+      {/* Infinite scroll sentinel - triggers loading when scrolled into view */}
+      {/* Only show sentinel when we have items (not during initial load/filter reset) */}
+      {items.length > 0 && page < totalPages && (
+        <div ref={sentinelRef} className="h-20 flex items-center justify-center">
+          {loading && (
+            <div className="flex items-center gap-3">
+              <Spinner className="size-5 text-white/60" />
+              <p className="text-white/60">Loading more items...</p>
             </div>
+          )}
+        </div>
       )}
     </div>
   );

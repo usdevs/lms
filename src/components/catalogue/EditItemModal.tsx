@@ -32,6 +32,7 @@ import {
   NewItemClientSchema,
 } from "@/lib/schema/item";
 import { Plus } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import type { SlocView, IHView } from "@/lib/utils/server/item";
 import type { Prisma } from "@prisma/client";
 
@@ -470,13 +471,14 @@ export default function EditItemModal({
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting
-                  ? mode === "edit"
-                    ? "Updating..."
-                    : "Adding..."
-                  : mode === "edit"
-                  ? "Update Item"
-                  : "Add Item"}
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <Spinner className="size-4" />
+                    <span>{mode === "edit" ? "Updating..." : "Adding..."}</span>
+                  </div>
+                ) : (
+                  <span>{mode === "edit" ? "Update Item" : "Add Item"}</span>
+                )}
               </Button>
             </DialogFooter>
           </form>
