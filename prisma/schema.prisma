@@ -15,6 +15,8 @@ model IH {
   items       Item[]           @relation("ItemIH")
   loanDetails LoanItemDetail[] @relation("LoanItemDetailIH")
 
+  isActive Boolean  @default(true) 
+
   @@map("ih")
 }
 
@@ -95,6 +97,7 @@ model Sloc {
   slocName    String           @map("sloc_name")
   items       Item[]           @relation("ItemSloc")
   loanDetails LoanItemDetail[] @relation("LoanItemDetailSloc")
-
+  
+  isActive Boolean  @default(true) 
   @@map("sloc")
 }

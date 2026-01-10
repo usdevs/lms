@@ -34,6 +34,7 @@ import {
 import { Plus } from "lucide-react";
 import type { SlocView, IHView } from "@/lib/utils/server/item";
 import type { Prisma } from "@prisma/client";
+import { CreatableAutocomplete, AutocompleteValue } from "@/components/ui/creatableAutocomplete";
 
 type ItemForEdit =
   Prisma.ItemGetPayload<{
@@ -77,6 +78,12 @@ export default function EditItemModal({
   const [previewUrl, setPreviewUrl] = useState<string | null>(item?.itemImage ?? null);
   const [deleteImage, setDeleteImage] = useState(false);
   const router = useRouter();
+
+  // For immediate UI update 
+  const [tempSlocs, setTempSlocs] = useState<SlocView[]>([]);
+  const [tempIhs, setTempIhs] = useState<IHView[]>([]);
+  const allSlocs = useMemo(() => [...slocs, ...tempSlocs], [slocs, tempSlocs]);
+  const allIhs = useMemo(() => [...ihs, ...tempIhs], [ihs, tempIhs]);
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -181,6 +188,7 @@ export default function EditItemModal({
       form.reset(defaultValues);
       setSelectedFile(null);
       setPreviewUrl(item?.itemImage ?? null);
+      setDeleteImage(false);
     }
   };
 
@@ -299,24 +307,32 @@ export default function EditItemModal({
                     <FormItem>
                       <FormLabel htmlFor="itemSloc">Storage Location *</FormLabel>
                       <FormControl>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger id="itemSloc">
-                            <SelectValue placeholder="Select location" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {slocs.map((sloc) => (
-                              <SelectItem
-                                key={sloc.slocId}
-                                value={sloc.slocId}
-                              >
-                                {sloc.slocName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <CreatableAutocomplete
+                          value={field.value 
+                            ? { 
+                              id: field.value, 
+                              label: allSlocs.find(s => s.slocId === field.value)?.slocName || "" 
+                            } 
+                            : null}
+                          onSelect={async (val: AutocompleteValue) => {
+                            if (!val.id) {
+                              const id = crypto.randomUUID(); // Tbc: generate unique id 
+                              const res = await fetch("/api/sloc", {
+                                method: "POST",
+                                body: JSON.stringify({ slocId: id, slocName: val.label }),
+                              });
+                              const newSloc = await res.json();
+
+                              setTempSlocs(prev => [...prev, newSloc]);
+                              field.onChange(newSloc.slocId);
+                            } else {
+                              field.onChange(val.id);
+                            }
+                          }}
+                          searchEndpoint="/api/sloc"
+                          placeholder="Select or add location"
+                          deleteEndpoint="/api/sloc"                         
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -329,21 +345,32 @@ export default function EditItemModal({
                     <FormItem>
                       <FormLabel htmlFor="itemIh">Inventory Holder *</FormLabel>
                       <FormControl>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger id="itemIh">
-                            <SelectValue placeholder="Select holder" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ihs.map((ih) => (
-                              <SelectItem key={ih.ihId} value={ih.ihId}>
-                                {ih.ihName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <CreatableAutocomplete
+                          value={field.value 
+                            ? { 
+                              id: field.value, 
+                              label: allIhs.find(i => i.ihId === field.value)?.ihName || "" 
+                            } 
+                            : null}
+                          onSelect={async (val: AutocompleteValue) => {
+                            if (!val.id) {
+                              const id = crypto.randomUUID(); // Tbc: generate unique id 
+                              const res = await fetch("/api/ih", {
+                                method: "POST",
+                                body: JSON.stringify({ ihId: id, ihName: val.label }),
+                              });
+                              const newIH = await res.json();
+
+                              setTempIhs(prev => [...prev, newIH]);
+                              field.onChange(newIH.ihId);
+                            } else {
+                              field.onChange(val.id);
+                            }
+                          }}
+                          searchEndpoint="/api/ih"
+                          placeholder="Select or add inventory holder"
+                          deleteEndpoint="/api/ih" 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
