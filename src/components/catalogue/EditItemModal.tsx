@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { createItem, updateItem } from "@/lib/actions/item";
+import { createItem, updateItem, uploadItemImage } from "@/lib/actions/item";
 import { objectToFormData } from "@/lib/utils";
 import {
   EditItemClientSchema,
@@ -124,16 +124,15 @@ export default function EditItemModal({
       const uploadFormData = new FormData();
       uploadFormData.append("photo", selectedFile);
 
-      const uploadRes = await fetch("/api/items/upload", {
-        method: "POST",
-        body: uploadFormData,
-      });
-
-      const uploadData = await uploadRes.json();
-      if (uploadData.url) {
+      const uploadResult = await uploadItemImage(uploadFormData);
+      if ("url" in uploadResult && uploadResult.url) {
         const origin = window.location.origin;
-        photoUrl = `${origin}${uploadData.url}`;  // Valid Url
-      } 
+        photoUrl = `${origin}${uploadResult.url}`;  // Valid Url
+      } else if ("error" in uploadResult) {
+        toast.error(uploadResult.error || "Failed to upload image");
+        setIsSubmitting(false);
+        return;
+      }
     } 
 
     const finalValues = {...values, ...(photoUrl ? { itemImage: photoUrl } : ""), ...(deleteImage ? {deleteImage: true } : {})};

@@ -7,12 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import EditItemModal from "./EditItemModal";
 import DeleteItemButton from "./DeleteItemButton";
-import type {
-  ItemView,
-  SlocView,
-  IHView,
-  PaginatedItemsResponse,
-} from "@/lib/utils/server/item";
+import { getItemsPaginated } from "@/lib/actions/item";
+import { IHView } from "@/lib/types/ih";
+import { ItemView } from "@/lib/types/items";
+import { SlocView } from "@/lib/types/slocs";
 
 interface CatalogueProps {
   slocs: SlocView[];
@@ -24,8 +22,8 @@ type SortOption = "name" | "quantity";
 export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   // Filters and Sort (server-side)
   const [searchString, setSearchString] = useState("");
-  const [filterSloc, setFilterSloc] = useState<string>("");
-  const [filterHolder, setFilterHolder] = useState<string>("");
+  const [filterSlocId, setFilterSlocId] = useState<string>("");
+  const [filterIhId, setFilterIhId] = useState<string>("");
   const [sortOption, setSortOption] = useState<SortOption>("name");
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -41,56 +39,34 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
     async (pageNum: number, resetItems = false) => {
       setLoading(true);
       try {
-        // Build query parameters
-        const params = new URLSearchParams({
-          page: pageNum.toString(),
-          limit: limit.toString(),
+        const response = await getItemsPaginated({
+          page: pageNum,
+          limit: limit,
           sort: sortOption,
-          asc: sortAsc.toString(),
+          asc: sortAsc,
+          search: searchString || undefined,
+          slocId: filterSlocId || undefined,
+          ihId: filterIhId || undefined,
         });
 
-        if (searchString) {
-          params.append("search", searchString);
-        }
-        if (filterSloc) {
-          // Find slocId from slocName
-          const sloc = slocs.find((s) => s.slocName === filterSloc);
-          if (sloc) {
-            params.append("sloc", sloc.slocId);
-          }
-        }
-        if (filterHolder) {
-          // Find ihId from ihName
-          const ih = ihs.find((h) => h.ihName === filterHolder);
-          if (ih) {
-            params.append("ih", ih.ihId);
-          }
-        }
-
-        const res = await fetch(`/api/items?${params.toString()}`);
-        if (!res.ok) {
-          throw new Error("Failed to fetch items");
-        }
-        const data: PaginatedItemsResponse = await res.json();
-
         if (resetItems) {
-          setItems(data.items);
+          setItems(response.data);
         } else {
           setItems((prev) => {
-            const existingIds = new Set(prev.map(item => item.itemId));
-            const newItems = data.items.filter(item => !existingIds.has(item.itemId));
+            const existingIds = new Set(prev.map((item: ItemView) => item.itemId));
+            const newItems = response.data.filter((item: ItemView) => !existingIds.has(item.itemId));
             return [...prev, ...newItems];
           });
         }
-        setTotalPages(data.totalPages);
-        setTotalItems(data.totalItems);
+        setTotalPages(response.meta.totalPages);
+        setTotalItems(response.meta.totalItems);
       } catch (err) {
         console.error("Failed to fetch items", err);
       } finally {
         setLoading(false);
       }
     },
-    [searchString, filterSloc, filterHolder, sortOption, sortAsc, slocs, ihs]
+    [searchString, filterSlocId, filterIhId, sortOption, sortAsc, limit]
   );
 
   // Ref for search input
@@ -99,7 +75,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Reset and refetch when filters, sort, or searchString changes
-  // This auto-fetches on any filter change (filterSloc, filterHolder, sortOption, sortAsc)
+  // This auto-fetches on any filter change (filterSlocId, filterIhId, sortOption, sortAsc)
   // and also when searchString changes (which happens on Enter/blur)
   useEffect(() => {
     setPage(1);
@@ -161,22 +137,22 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   };
 
   const defaultFilters = {
-    filterSloc: "",
-    filterHolder: "",
+    filterSlocId: "",
+    filterIhId: "",
     sortOption: "name" as SortOption,
     sortAsc: true,
   };
   const resetFilters = () => {
-    setFilterSloc(defaultFilters.filterSloc);
-    setFilterHolder(defaultFilters.filterHolder);
+    setFilterSlocId(defaultFilters.filterSlocId);
+    setFilterIhId(defaultFilters.filterIhId);
     setSortOption(defaultFilters.sortOption);
     setSortAsc(defaultFilters.sortAsc);
   };
 
   // Check if any filter is not in default state
   const hasActiveFilters = 
-    filterSloc !== defaultFilters.filterSloc ||
-    filterHolder !== defaultFilters.filterHolder ||
+    filterSlocId !== defaultFilters.filterSlocId ||
+    filterIhId !== defaultFilters.filterIhId ||
     sortOption !== defaultFilters.sortOption ||
     sortAsc !== defaultFilters.sortAsc;
 
@@ -226,26 +202,26 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
       )}
 
       <select
-           value={filterSloc}
-           onChange={(e) => setFilterSloc(e.target.value)}
+           value={filterSlocId}
+           onChange={(e) => setFilterSlocId(e.target.value)}
            className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
          >
            <option value="" className="text-black">All Locations</option>  {/*Default*/}
            {slocs.map((s) => (
-             <option key={s.slocId} value={s.slocName} className="text-black">
+             <option key={s.slocId} value={s.slocId} className="text-black">
                {s.slocName}
              </option>
            ))}
          </select>
       
       <select
-           value={filterHolder}
-           onChange={(e) => setFilterHolder(e.target.value)}
+           value={filterIhId}
+           onChange={(e) => setFilterIhId(e.target.value)}
            className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
          >
            <option value="" className="text-black">All Holders</option>  {/*Default*/}
            {ihs.map((h) => (
-             <option key={h.ihId} value={h.ihName} className="text-black">
+             <option key={h.ihId} value={h.ihId} className="text-black">
                {h.ihName}
              </option>
            ))}
