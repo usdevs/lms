@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,10 +26,10 @@ interface DeleteItemButtonProps {
 export default function DeleteItemButton({
   itemId,
   itemDesc,
+  onDelete,
 }: DeleteItemButtonProps) {
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const router = useRouter();
 
   async function handleDelete() {
     setIsDeleting(true);
@@ -40,7 +39,7 @@ export default function DeleteItemButton({
     if (result.success) {
       setOpen(false);
       toast.success("Item deleted successfully!");
-      router.refresh();
+      onDelete?.();
     } else {
       toast.error(result.error || "Failed to delete item");
     }

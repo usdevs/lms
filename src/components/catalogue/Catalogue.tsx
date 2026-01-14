@@ -156,6 +156,13 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
     sortOption !== defaultFilters.sortOption ||
     sortAsc !== defaultFilters.sortAsc;
 
+  // Refresh items after create/update/delete (preserves current filters)
+  const refreshItems = useCallback(() => {
+    setPage(1);
+    setItems([]);
+    fetchItems(1, true);
+  }, [fetchItems]);
+
   return (
     <div className="min-h-screen w-full bg-[#0C2C47] p-8">
       <div className="mb-8 flex items-center justify-between">
@@ -163,7 +170,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
           <p className="text-white/80">{totalItems} ITEMS</p>
         </div>
-        <EditItemModal slocs={slocs} ihs={ihs} mode="add" />
+        <EditItemModal slocs={slocs} ihs={ihs} mode="add" onSuccess={refreshItems} />
       </div>
 
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -334,10 +341,12 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                       <Pencil className="h-4 w-4" />
                     </Button>
                   }
+                  onSuccess={refreshItems}
                 />
                 <DeleteItemButton
                   itemId={Number(item.itemId)}
                   itemDesc={item.itemDesc}
+                  onDelete={refreshItems}
                 />
               </div>
             </div>

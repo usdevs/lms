@@ -149,11 +149,7 @@ export default function EditItemModal({
         `Item ${mode === "edit" ? "updated" : "created"} successfully!`,
       );
       setOpen(false);
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        router.refresh();
-      }
+      onSuccess?.();
       return;
     }
 
