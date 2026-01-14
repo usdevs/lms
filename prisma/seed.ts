@@ -162,7 +162,6 @@ async function main() {
 
     const item = await prisma.item.create({
       data: {
-        nuscSn: `ITEM${String(i).padStart(3, '0')}`,
         itemDesc: description,
         itemSloc: sloc.slocId,
         itemIh: ih.ihId,

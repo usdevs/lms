@@ -33,14 +33,14 @@ import {
 } from "@/lib/schema/item";
 import { Plus } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-import type { SlocView, IHView } from "@/lib/utils/server/item";
 import type { Prisma } from "@prisma/client";
+import { IHView } from "@/lib/types/ih";
+import { SlocView } from "@/lib/types/slocs";
 
 type ItemForEdit =
   Prisma.ItemGetPayload<{
     select: {
       itemId: true; // internal numeric ID, not editable
-      nuscSn: true;
       itemDesc: true;
       itemQty: true;
       itemUom: true;
@@ -51,7 +51,7 @@ type ItemForEdit =
       itemRfpNumber: true;
       itemImage: true;
     };
-  }> & { nuscSn: string };
+  }>;
 
 interface EditItemModalProps {
   slocs: SlocView[];
@@ -88,7 +88,6 @@ export default function EditItemModal({
   const defaultValues = useMemo(
     () => ({
       itemId: item?.itemId, // Needed to submit form  
-      nuscSn: item?.nuscSn ?? "",
       itemDesc: item?.itemDesc ?? "",
       // Let Zod coerce quantity from string; default to empty string in the input
       itemQty: item?.itemQty ?? undefined,
@@ -163,9 +162,7 @@ export default function EditItemModal({
       `Failed to ${mode === "edit" ? "update" : "create"} item`;
 
     // Map known server-side validation errors to fields where possible
-    if (errorMessage.includes("NUSC SN")) {
-      form.setError("nuscSn", { message: errorMessage });
-    } else if (errorMessage.includes("Description")) {
+    if (errorMessage.includes("Description")) {
       form.setError("itemDesc", { message: errorMessage });
     } else if (errorMessage.includes("Quantity")) {
       form.setError("itemQty", { message: errorMessage });
@@ -226,22 +223,6 @@ export default function EditItemModal({
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <FormField
-                control={form.control}
-                name="nuscSn"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>NUSC SN *</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter NUSC serial number"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}

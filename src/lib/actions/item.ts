@@ -32,22 +32,9 @@ export async function createItem(formData: FormData) {
     };
   }
 
-  // Check if NUSC SN already exists
-  const existingItem = await prisma.item.findUnique({
-    // Temporary cast while Prisma client types catch up with schema
-    where: { nuscSn: data.nuscSn.trim() },
-  });
-  if (existingItem) {
-    return {
-      success: false,
-      error: `NUSC SN "${data.nuscSn.trim()}" already exists. Please use a different value.`,
-    };
-  }
-
   try {
     await prisma.item.create({
       data: {
-        nuscSn: data.nuscSn.trim(),
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
         itemIh: data.itemIh.trim(),
@@ -99,20 +86,6 @@ export async function updateItem(itemId: number, formData: FormData) {
   
   const deleteImage = formData.get("deleteImage") === "true"; // Checks whether to delete   
 
-  const newNuscSn = data.nuscSn.trim();
-
-  // If NUSC SN is being changed or even re-set, ensure no other item already has it
-  const existingWithNuscSn = await prisma.item.findUnique({
-    where: { nuscSn: newNuscSn },
-  });
-
-  if (existingWithNuscSn && existingWithNuscSn.itemId !== itemId) {
-    return {
-      success: false,
-      error: `NUSC SN "${newNuscSn}" already exists. Please use a different value.`,
-    };
-  }
-
   try {
     // Delete image 
     const fs = require("fs");
@@ -140,7 +113,6 @@ export async function updateItem(itemId: number, formData: FormData) {
       where: { itemId: itemId as any },
       data: {
         itemId: itemId,
-        nuscSn: newNuscSn,
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
         itemIh: data.itemIh.trim(),
@@ -221,14 +193,21 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
     const conditions: Prisma.ItemWhereInput[] = [];
 
     if (params.search) {
+      const searchConditions: Prisma.ItemWhereInput[] = [
+        { itemDesc: { contains: params.search, mode: "insensitive" } },
+        { itemRemarks: { contains: params.search, mode: "insensitive" } },
+        { sloc: { slocName: { contains: params.search, mode: "insensitive" } } },
+        { ih: { ihName: { contains: params.search, mode: "insensitive" } } },
+      ];
+
+      // Only search by itemId if the search string is a valid number
+      const itemIdNumber = parseInt(params.search, 10);
+      if (!isNaN(itemIdNumber) && itemIdNumber.toString() === params.search.trim()) {
+        searchConditions.push({ itemId: { equals: itemIdNumber } });
+      }
+
       conditions.push({
-        OR: [
-          { itemDesc: { contains: params.search, mode: "insensitive" } },
-          { nuscSn: { contains: params.search, mode: "insensitive" } },
-          { itemRemarks: { contains: params.search, mode: "insensitive" } },
-          { sloc: { slocName: { contains: params.search, mode: "insensitive" } } },
-          { ih: { ihName: { contains: params.search, mode: "insensitive" } } },
-        ],
+        OR: searchConditions,
       });
     }
 
@@ -250,7 +229,9 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
         ? { itemDesc: params.asc ? "asc" : "desc" }
         : params.sort === "quantity"
           ? { itemQty: params.asc ? "asc" : "desc" }
-          : { itemId: "desc" };
+          : params.sort === "id"
+            ? { itemId: params.asc ? "asc" : "desc" }
+            : { itemId: "desc" };
 
     // Get filtered items with pagination
     const items = await prisma.item.findMany({
@@ -260,7 +241,6 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
       orderBy,
       select: {
         itemId: true,
-        nuscSn: true,
         itemDesc: true,
         itemQty: true,
         itemUom: true,

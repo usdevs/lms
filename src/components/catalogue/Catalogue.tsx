@@ -17,7 +17,7 @@ interface CatalogueProps {
   ihs: IHView[];
 }
 
-type SortOption = "name" | "quantity";
+type SortOption = "name" | "quantity" | "id";
 
 export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   // Filters and Sort (server-side)
@@ -234,6 +234,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
          >
            <option value="name" className="text-black">Sort by Item Name</option>
            <option value="quantity" className="text-black">Sort by Quantity</option>
+           <option value="id" className="text-black">Sort by ID</option>
          </select>
       
         {/*Asc/Desc Button*/}
@@ -289,7 +290,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
               </h3>
               <div className="mb-4 flex-1 space-y-2 text-sm text-gray-700">
                 <p>
-                  <span className="font-semibold">NUSC SN:</span> {item.nuscSn}
+                  <span className="font-semibold">Item ID:</span> {item.itemId}
                 </p>
                 <p>
                   <span className="font-semibold">Quantity:</span> {item.itemQty}{" "}
@@ -318,7 +319,6 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                   mode="edit"
                   item={{
                     itemId: item.itemId,
-                    nuscSn: item.nuscSn,
                     itemDesc: item.itemDesc,
                     itemQty: item.itemQty,
                     itemUom: item.itemUom,
