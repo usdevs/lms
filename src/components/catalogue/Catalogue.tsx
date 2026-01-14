@@ -3,12 +3,14 @@
 import { ChangeEvent, useState, useMemo } from "react";
 import { Search, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import EditItemModal from "./EditItemModal";
 import DeleteItemButton from "./DeleteItemButton";
 import type { ItemView, SlocView, IHView } from "@/lib/utils/server/item";
+import { DashboardNav } from "@/components/DashboardNav";
 
 interface CatalogueProps {
-  items: ItemView[];
+  items: (ItemView & { totalQty?: number; netQty?: number })[];
   slocs: SlocView[];
   ihs: IHView[];
 }
@@ -85,6 +87,7 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
 
   return (
     <div className="min-h-screen w-full bg-[#0C2C47] p-8">
+      <DashboardNav />
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
@@ -182,11 +185,7 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
               </h3>
               <div className="mb-4 flex-1 space-y-2 text-sm text-gray-700">
                 <p>
-                  <span className="font-semibold">NUSC SN:</span> {item.nuscSn}
-                </p>
-                <p>
-                  <span className="font-semibold">Quantity:</span> {item.itemQty}{" "}
-                  {item.itemUom}
+                  <span className="font-semibold">Nusc SN:</span> {item.nuscSn}
                 </p>
                 <p>
                   <span className="font-semibold">Storage Location:</span>{" "}
@@ -202,6 +201,23 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
                   </p>
                 )}
               </div>
+
+              <div className="mb-4 pt-4 border-t border-gray-100">
+                <div className="grid grid-cols-2 gap-x-6">
+                  <div>
+                    <span className="font-semibold block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Total Owned</span>
+                    <span className="text-xl font-medium text-gray-900">{item.totalQty ?? "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Available</span>
+                    <span className={cn("text-xl font-bold", (item.netQty ?? item.itemQty) > 0 ? "text-green-600" : "text-destructive")}>
+                      {item.netQty ?? item.itemQty}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+
               <div className="flex justify-end gap-2">
                 <EditItemModal
                   slocs={slocs}

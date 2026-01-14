@@ -1,93 +1,83 @@
-"use client";
+import React from "react";
+import prisma from "@/lib/prisma";
+import { getLoans } from "@/lib/actions/loan";
+import { LoansTable } from "@/components/loans/LoansTable";
+import { NewLoanModal } from "@/components/loans/NewLoanModal";
+import { DashboardNav } from "@/components/DashboardNav";
 
-import React, { useState } from "react";
-import {LoansTable} from "@/components/loans/LoansTable";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// Since this is a server component, we can fetch data directly
+export default async function LoanDashboardPage() {
 
-export default function LoanDashboardPage() {
-  const allLoans = [
-    { id: 101, name: "John Doe", status: "Active", date: "2024-01-15" },
-    { id: 102, name: "Jane Smith", status: "Returned", date: "2024-01-10" },
-    { id: 103, name: "Sam Wilson", status: "Active", date: "2024-01-20" },
-    { id: 104, name: "Alice Brown", status: "Returned", date: "2023-12-25" },
-    { id: 105, name: "Charlie Davis", status: "Active", date: "2024-02-01" },
-  ];
+  // 1. Fetch Loans
+  const loans = await getLoans();
 
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  // 2. Fetch Requesters for the selector
+  const requesters = await prisma.requester.findMany({
+    select: { reqId: true, reqName: true, reqNusnet: true },
+    orderBy: { reqName: 'asc' }
+  });
 
-  const filteredLoans = allLoans.filter((loan) => {
-    const statusMatches = statusFilter === "All" || loan.status === statusFilter;
-    const loanDate = new Date(loan.date);
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate ? new Date(endDate) : null;
-    const isAfterStart = start ? loanDate >= start : true;
-    const isBeforeEnd = end ? loanDate <= end : true;
-    return statusMatches && isAfterStart && isBeforeEnd;
+  // 3. Fetch Items
+  const items = await prisma.item.findMany({
+    select: { itemId: true, itemDesc: true, nuscSn: true, itemQty: true },
+    orderBy: { itemDesc: 'asc' }
+  });
+
+  // 4. Calculate Stats (Pending & On Loan)
+  // We need to know how many are currently ON_LOAN (to calculate Total Asset count)
+  // and how many are PENDING (to calculate Net Available for new requests)
+
+  const pendingCounts = await prisma.loanItemDetail.groupBy({
+    by: ['itemId'],
+    where: { loanStatus: 'PENDING' },
+    _sum: { loanQty: true }
+  });
+
+  const onLoanCounts = await prisma.loanItemDetail.groupBy({
+    by: ['itemId'],
+    where: { loanStatus: 'ON_LOAN' },
+    _sum: { loanQty: true }
+  });
+
+  // Helper map
+  const pendingMap = new Map(pendingCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
+  const onLoanMap = new Map(onLoanCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
+
+  const enrichedItems = items.map(item => {
+    const onLoan = onLoanMap.get(item.itemId) || 0;
+    const pending = pendingMap.get(item.itemId) || 0;
+
+    // Total = Currently on shelf (itemQty) + Currently out (onLoan)
+    const totalQty = item.itemQty + onLoan;
+
+    // Net Available = Currently on shelf (itemQty) - Reserved in Pending (pending)
+    const netQty = Math.max(0, item.itemQty - pending);
+
+    return {
+      ...item,
+      totalQty,
+      netQty
+    };
   });
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Loan Dashboard</h1>
-        <Button>+ New Request</Button>
+    <div className="min-h-screen w-full bg-[#0C2C47] p-8">
+      <DashboardNav />
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-4xl font-bold text-white mb-2">Loans</h1>
+          <p className="text-white/80">{loans.length} LOAN REQUESTS</p>
+        </div>
+
+        <NewLoanModal
+          requesters={requesters}
+          items={enrichedItems}
+        />
       </div>
 
-      <div className="bg-card p-4 rounded-lg border shadow-sm flex flex-wrap gap-4 items-end">
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium leading-none">Status</label>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Statuses</SelectItem>
-              <SelectItem value="Active">Active Only</SelectItem>
-              <SelectItem value="Returned">Returned Only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium leading-none">Start Date</label>
-          <Input
-            type="date"
-            className="w-[160px]"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium leading-none">End Date</label>
-          <Input
-            type="date"
-            className="w-[160px]"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setStatusFilter("All");
-            setStartDate("");
-            setEndDate("");
-          }}
-          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-        >
-          Reset Filters
-        </Button>
+      <div className="bg-white rounded-lg p-6 shadow-sm">
+        <LoansTable data={loans} />
       </div>
-
-      <LoansTable data={filteredLoans} />
     </div>
   );
 }
