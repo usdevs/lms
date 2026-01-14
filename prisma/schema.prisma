@@ -72,7 +72,6 @@ model IH {
 
 model Item {
   itemId           Int              @id @default(autoincrement()) @map("item_id")
-  nuscSn           String           @unique @map("nusc_sn")
   itemDesc         String           @map("item_desc")
   itemSloc         String           @map("item_sloc")
   itemIh           String           @map("item_ih")

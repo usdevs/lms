@@ -19,8 +19,7 @@ NOTE: The schema is super rough (its pretty much what they gave us + a few minor
 - **Item**
   - Represents a **physical inventory item** that can be loaned.
   - Key fields:
-    - `itemId`: Internal numeric primary key.
-    - `nuscSn`: Public/visible NUSC serial number used in catalogue and by users.
+    - `itemId`: Autoincrementing serial number.
     - `itemDesc`: Description/Name of the item.
     - `itemSloc`: Storage location ID (FK to `Sloc`).
     - `itemIh`: Current IH ID (FK to `IH`).

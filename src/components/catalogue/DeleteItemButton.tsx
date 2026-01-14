@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -26,31 +26,22 @@ interface DeleteItemButtonProps {
 export default function DeleteItemButton({
   itemId,
   itemDesc,
+  onDelete,
 }: DeleteItemButtonProps) {
   const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   async function handleDelete() {
-    // Optimistic update - remove from UI immediately
-
-    // Perform actual deletion in background (by primary key)
+    setIsDeleting(true);
     const result = await deleteItem(itemId);
-
-    setOpen(false);
+    setIsDeleting(false);
 
     if (result.success) {
+      setOpen(false);
       toast.success("Item deleted successfully!");
-      // Use startTransition for non-blocking refresh
-      startTransition(() => {
-        router.refresh();
-      });
+      onDelete?.();
     } else {
       toast.error(result.error || "Failed to delete item");
-      // If deletion failed, refresh to restore the item
-      startTransition(() => {
-        router.refresh();
-      });
     }
   }
 
@@ -62,7 +53,7 @@ export default function DeleteItemButton({
           size="sm"
           className="mt-auto text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
         >
-          Delete
+          <Trash2 className="h-4 w-4" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -74,14 +65,21 @@ export default function DeleteItemButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <Button
             onClick={handleDelete}
-            disabled={isPending}
-            className="bg-red-600 hover:bg-red-700"
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700 text-white"
           >
-            {isPending ? "Deleting..." : "Delete"}
-          </AlertDialogAction>
+            {isDeleting ? (
+              <div className="flex items-center gap-2">
+                <Spinner className="size-4" />
+                <span>Deleting...</span>
+              </div>
+            ) : (
+              "Delete"
+            )}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
