@@ -9,7 +9,7 @@ export default async function CataloguePage() {
     getIHs(),
   ]);
 
-  // Calculate Stats (Pending & On Loan)
+  // Calculate inventory stats
   const pendingCounts = await prisma.loanItemDetail.groupBy({
     by: ['itemId'],
     where: { loanStatus: 'PENDING' },
@@ -22,7 +22,7 @@ export default async function CataloguePage() {
     _sum: { loanQty: true }
   });
 
-  // Helper map
+
   const pendingMap = new Map(pendingCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
   const onLoanMap = new Map(onLoanCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
 
@@ -30,10 +30,7 @@ export default async function CataloguePage() {
     const onLoan = onLoanMap.get(item.itemId) || 0;
     const pending = pendingMap.get(item.itemId) || 0;
 
-    // Total = Currently on shelf (itemQty) + Currently out (onLoan)
     const totalQty = item.itemQty + onLoan;
-
-    // Net Available = Currently on shelf (itemQty) - Reserved in Pending (pending)
     const netQty = Math.max(0, item.itemQty - pending);
 
     return {

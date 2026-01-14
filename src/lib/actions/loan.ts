@@ -34,11 +34,11 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
 
     try {
         await prisma.$transaction(async (tx) => {
-            // 1. Resolve Requester
+            // Resolve Requester
             let finalReqId = requesterId;
 
             if (!finalReqId && newRequester) {
-                // Check for duplicate NUSNET
+
                 const existing = await tx.requester.findUnique({ where: { reqNusnet: newRequester.nusnet } });
                 if (existing) {
                     throw new Error(`Requester with NUSNET ${newRequester.nusnet} already exists.`);
@@ -57,7 +57,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
             if (!finalReqId) throw new Error("Requester not identified");
 
 
-            // 2. Setup Header
+            // Create LoanRequest
             const loanRequest = await tx.loanRequest.create({
                 data: {
                     reqId: finalReqId,
@@ -66,16 +66,16 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                     organisation: organisation || null,
                     eventDetails: eventDetails || null,
                     eventLocation: eventLocation || null,
-                    requestStatus: "PENDING", // CHANGED: Start as PENDING
+                    requestStatus: "PENDING",
                 }
             });
 
-            // 3. Process Items (No stock deduction yet)
+            // Create LoanItemDetails (no stock deduction until approval)
             for (const loanItem of items) {
                 const dbItem = await tx.item.findUnique({ where: { itemId: loanItem.itemId } });
                 if (!dbItem) throw new Error(`Item ${loanItem.itemId} not found`);
 
-                // Check for duplicate pending requests to prevent overbooking
+                // Prevent overbooking: check pending requests
                 const pendingAgg = await tx.loanItemDetail.aggregate({
                     where: {
                         itemId: loanItem.itemId,
@@ -93,13 +93,13 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                     throw new Error(`Insufficient allocatable stock for ${dbItem.itemDesc}. Available: ${dbItem.itemQty}, Pending: ${currentPending}, Net: ${netAvailable}. Requested: ${loanItem.loanQty}`);
                 }
 
-                // Create Detail
+
                 await tx.loanItemDetail.create({
                     data: {
                         refNo: loanRequest.refNo,
                         itemId: loanItem.itemId,
                         loanQty: loanItem.loanQty,
-                        loanStatus: "PENDING", // CHANGED: Start as PENDING
+                        loanStatus: "PENDING",
                         itemSlocAtLoan: dbItem.itemSloc,
                         itemIhAtLoan: dbItem.itemIh,
                     }
@@ -127,7 +127,7 @@ export async function approveLoan(refNo: number) {
             if (!request) throw new Error("Loan request not found");
             if (request.requestStatus !== "PENDING") throw new Error("Loan is not pending");
 
-            // Check stock and deduct
+            // Deduct stock for each item
             for (const detail of request.loanDetails) {
                 if (detail.item.itemQty < detail.loanQty) {
                     throw new Error(`Insufficient stock for ${detail.item.itemDesc}. Available: ${detail.item.itemQty}, Requested: ${detail.loanQty}`);
@@ -165,7 +165,7 @@ export async function rejectLoan(refNo: number) {
             if (!request) throw new Error("Loan request not found");
             if (request.requestStatus !== "PENDING") throw new Error("Loan is not pending");
 
-            // Just update status to REJECTED. Items also REJECTED.
+
             await tx.loanRequest.update({
                 where: { refNo },
                 data: { requestStatus: "REJECTED" }
@@ -187,7 +187,7 @@ export async function rejectLoan(refNo: number) {
 export async function returnItem(loanDetailId: number) {
     try {
         await prisma.$transaction(async (tx) => {
-            // 1. Get the loan detail
+
             const detail = await tx.loanItemDetail.findUnique({
                 where: { loanDetailId },
                 include: { loanRequest: true }
@@ -196,35 +196,30 @@ export async function returnItem(loanDetailId: number) {
             if (!detail) throw new Error("Loan detail not found");
             if (["RETURNED", "RETURNED_LATE"].includes(detail.loanStatus)) return; // Already returned
 
-            // 2. Check for Lateness
+            // Check for late return
             const isLate = new Date() > detail.loanRequest.loanDateEnd;
             const newStatus = isLate ? "RETURNED_LATE" : "RETURNED";
 
-            // 3. Update status
+
             await tx.loanItemDetail.update({
                 where: { loanDetailId },
                 data: { loanStatus: newStatus }
             });
 
-            // 4. Restore Stock
+            // Restore stock
             await tx.item.update({
                 where: { itemId: detail.itemId },
                 data: { itemQty: { increment: detail.loanQty } }
             });
 
-            // 5. Check if parent request is fully complete
+            // Mark loan as COMPLETED if all items returned
             const siblings = await tx.loanItemDetail.findMany({
                 where: { refNo: detail.refNo }
             });
 
             const allReturned = siblings.every(s =>
-                (s.loanDetailId === loanDetailId) // This one is being returned now
-                    ? true
-                    : ["RETURNED", "RETURNED_LATE", "REJECTED"].includes(s.loanStatus)
+                s.loanDetailId === loanDetailId || ["RETURNED", "RETURNED_LATE", "REJECTED"].includes(s.loanStatus)
             );
-
-            // "PENDING" items shouldn't exist in an active loan, but if partials...
-            // If all are returned or rejected, mark completed.
 
             if (allReturned) {
                 await tx.loanRequest.update({
@@ -244,7 +239,7 @@ export async function returnItem(loanDetailId: number) {
 }
 
 export async function getLoans() {
-    // Basic fetch, sorting by ID desc so newest first
+
     const loans = await prisma.loanRequest.findMany({
         include: {
             requester: true,

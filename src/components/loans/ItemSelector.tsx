@@ -119,9 +119,10 @@ export function ItemSelector({ availableItems, onAddItem }: ItemSelectorProps) {
                 <Input
                     type="number"
                     min={1}
-                    max={maxQty}
+                    max={Math.max(1, maxQty)}
                     value={qty}
                     onChange={(e) => setQty(parseInt(e.target.value) || 1)}
+                    disabled={maxQty <= 0}
                 />
             </div>
 
