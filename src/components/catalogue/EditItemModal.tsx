@@ -25,21 +25,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { createItem, updateItem } from "@/lib/actions/item";
+import { createItem, updateItem, uploadItemImage } from "@/lib/actions/item";
 import { objectToFormData } from "@/lib/utils";
 import {
   EditItemClientSchema,
   NewItemClientSchema,
 } from "@/lib/schema/item";
 import { Plus } from "lucide-react";
-import type { SlocView, IHView } from "@/lib/utils/server/item";
+import { Spinner } from "@/components/ui/spinner";
 import type { Prisma } from "@prisma/client";
+import { IHView } from "@/lib/types/ih";
+import { SlocView } from "@/lib/types/slocs";
 
 type ItemForEdit =
   Prisma.ItemGetPayload<{
     select: {
       itemId: true; // internal numeric ID, not editable
-      nuscSn: true;
       itemDesc: true;
       itemQty: true;
       itemUom: true;
@@ -50,7 +51,7 @@ type ItemForEdit =
       itemRfpNumber: true;
       itemImage: true;
     };
-  }> & { nuscSn: string };
+  }>;
 
 interface EditItemModalProps {
   slocs: SlocView[];
@@ -60,6 +61,7 @@ interface EditItemModalProps {
   trigger?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
 export default function EditItemModal({
@@ -70,9 +72,13 @@ export default function EditItemModal({
   trigger,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
+  onSuccess,
 }: EditItemModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File |null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(item?.itemImage ?? null);
+  const [deleteImage, setDeleteImage] = useState(false);
   const router = useRouter();
 
   const isControlled = controlledOpen !== undefined;
@@ -81,7 +87,7 @@ export default function EditItemModal({
 
   const defaultValues = useMemo(
     () => ({
-      nuscSn: item?.nuscSn ?? "",
+      itemId: item?.itemId, // Needed to submit form  
       itemDesc: item?.itemDesc ?? "",
       // Let Zod coerce quantity from string; default to empty string in the input
       itemQty: item?.itemQty ?? undefined,
@@ -91,7 +97,7 @@ export default function EditItemModal({
       itemRemarks: item?.itemRemarks ?? undefined,
       itemPurchaseDate: item?.itemPurchaseDate ?? undefined,
       itemRfpNumber: item?.itemRfpNumber ?? undefined,
-      itemImage: item?.itemImage ?? undefined,
+      itemImage: item?.itemImage ?? undefined, 
     }),
     [item],
   );
@@ -111,7 +117,25 @@ export default function EditItemModal({
   async function onSubmit(values: Record<string, unknown>) {
     setIsSubmitting(true);
 
-    const formData = objectToFormData(values);
+    let photoUrl = item?.itemImage ?? null;
+    
+    if (selectedFile) {
+      const uploadFormData = new FormData();
+      uploadFormData.append("photo", selectedFile);
+
+      const uploadResult = await uploadItemImage(uploadFormData);
+      if ("url" in uploadResult && uploadResult.url) {
+        const origin = window.location.origin;
+        photoUrl = `${origin}${uploadResult.url}`;  // Valid Url
+      } else if ("error" in uploadResult) {
+        toast.error(uploadResult.error || "Failed to upload image");
+        setIsSubmitting(false);
+        return;
+      }
+    } 
+
+    const finalValues = {...values, ...(photoUrl ? { itemImage: photoUrl } : ""), ...(deleteImage ? {deleteImage: true } : {})};
+    const formData = objectToFormData(finalValues);
 
     const result =
       mode === "edit" && item
@@ -125,7 +149,7 @@ export default function EditItemModal({
         `Item ${mode === "edit" ? "updated" : "created"} successfully!`,
       );
       setOpen(false);
-      router.refresh();
+      onSuccess?.();
       return;
     }
 
@@ -134,9 +158,7 @@ export default function EditItemModal({
       `Failed to ${mode === "edit" ? "update" : "create"} item`;
 
     // Map known server-side validation errors to fields where possible
-    if (errorMessage.includes("NUSC SN")) {
-      form.setError("nuscSn", { message: errorMessage });
-    } else if (errorMessage.includes("Description")) {
+    if (errorMessage.includes("Description")) {
       form.setError("itemDesc", { message: errorMessage });
     } else if (errorMessage.includes("Quantity")) {
       form.setError("itemQty", { message: errorMessage });
@@ -150,12 +172,14 @@ export default function EditItemModal({
       toast.error(errorMessage);
     }
   }
-
+  
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     if (!newOpen) {
       // Reset form when closing
       form.reset(defaultValues);
+      setSelectedFile(null);
+      setPreviewUrl(item?.itemImage ?? null);
     }
   };
 
@@ -176,7 +200,7 @@ export default function EditItemModal({
       Edit
     </Button>
   );
-
+  
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
@@ -195,22 +219,6 @@ export default function EditItemModal({
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <FormField
-                control={form.control}
-                name="nuscSn"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>NUSC SN *</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter NUSC serial number"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}
@@ -272,13 +280,13 @@ export default function EditItemModal({
                   name="itemSloc"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Storage Location *</FormLabel>
+                      <FormLabel htmlFor="itemSloc">Storage Location *</FormLabel>
                       <FormControl>
                         <Select
                           value={field.value}
                           onValueChange={field.onChange}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id="itemSloc">
                             <SelectValue placeholder="Select location" />
                           </SelectTrigger>
                           <SelectContent>
@@ -302,13 +310,13 @@ export default function EditItemModal({
                   name="itemIh"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Inventory Holder *</FormLabel>
+                      <FormLabel htmlFor="itemIh">Inventory Holder *</FormLabel>
                       <FormControl>
                         <Select
                           value={field.value}
                           onValueChange={field.onChange}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id="itemIh">
                             <SelectValue placeholder="Select holder" />
                           </SelectTrigger>
                           <SelectContent>
@@ -368,14 +376,42 @@ export default function EditItemModal({
                 name="itemImage"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL</FormLabel>
+                    <FormLabel htmlFor="itemImage">Upload Image</FormLabel> 
                     <FormControl>
                       <Input
-                        type="url"
-                        placeholder="https://example.com/image.jpg"
-                        value={field.value ?? ""}
-                        onChange={field.onChange}
+                        id="itemImage" 
+                        type="file" 
+                        accept="image/"
+                        onChange={ (e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          setSelectedFile(file);
+                          setPreviewUrl(file ? URL.createObjectURL(file) : item?.itemImage ?? null);
+                        }}
+                        className="border rounded-md p-1" 
                       />
+                      {previewUrl && (
+                        <div className="flex items-end gap-2 mt-2">
+                          <img
+                            src={previewUrl}
+                            alt="Preview"
+                            className="h-32 w-32 object-cover rounded-md border"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="bg-[#0d0a03] hover:bg-[#64615c] text-white"
+                            onClick={() => {
+                              setSelectedFile(null);
+                              setPreviewUrl(null);
+                              field.onChange("");
+                              setDeleteImage(true);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -411,13 +447,14 @@ export default function EditItemModal({
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting
-                  ? mode === "edit"
-                    ? "Updating..."
-                    : "Adding..."
-                  : mode === "edit"
-                  ? "Update Item"
-                  : "Add Item"}
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <Spinner className="size-4" />
+                    <span>{mode === "edit" ? "Updating..." : "Adding..."}</span>
+                  </div>
+                ) : (
+                  <span>{mode === "edit" ? "Update Item" : "Add Item"}</span>
+                )}
               </Button>
             </DialogFooter>
           </form>

@@ -1,13 +1,14 @@
 import Catalogue from "@/components/catalogue/Catalogue";
-import { getItems, getSlocs, getIHs } from "@/lib/utils/server/item";
+import { getIHs } from "@/lib/utils/server/ih";
+import { getSlocs } from "@/lib/utils/server/slocs";
+
 
 export default async function CataloguePage() {
-  const [items, slocs, ihs] = await Promise.all([
-    getItems(),
+  const [slocs, ihs] = await Promise.all([
     getSlocs(),
     getIHs(),
   ]);
 
-  return <Catalogue items={items} slocs={slocs} ihs={ihs} />;
+  return <Catalogue slocs={slocs} ihs={ihs} />;
 }
 
