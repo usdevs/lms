@@ -106,9 +106,15 @@ FormLabel.displayName = 'FormLabel';
 const FormControl = React.forwardRef<
   React.ElementRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
->(({ ...props }, ref) => {
+>(({ children, ...props }, ref) => {
   const { error, formItemId, formDescriptionId, formMessageId } =
     useFormField();
+  
+  // Slot must get exactly 1 child 
+  let child = children;
+  if (React.Children.count(children) > 1) {
+    child = <div className="flex flex-col gap-1">{children}</div>;
+  }
 
   return (
     <Slot
@@ -121,7 +127,9 @@ const FormControl = React.forwardRef<
       }
       aria-invalid={!!error}
       {...props}
-    />
+    >
+      {child}
+    </Slot>
   );
 });
 FormControl.displayName = 'FormControl';

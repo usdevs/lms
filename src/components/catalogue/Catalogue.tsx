@@ -1,89 +1,169 @@
 "use client";
 
-import { ChangeEvent, useState, useMemo } from "react";
-import { Search, RotateCcw } from "lucide-react";
+import { ChangeEvent, useState, useEffect, useCallback, useRef } from "react";
+import { Search, RotateCcw, X, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import EditItemModal from "./EditItemModal";
 import DeleteItemButton from "./DeleteItemButton";
-import type { ItemView, SlocView, IHView } from "@/lib/utils/server/item";
+import { getItemsPaginated } from "@/lib/actions/item";
+import { IHView } from "@/lib/types/ih";
+import { ItemView } from "@/lib/types/items";
+import { SlocView } from "@/lib/types/slocs";
 import { DashboardNav } from "@/components/DashboardNav";
-
 interface CatalogueProps {
   items: (ItemView & { totalQty?: number; netQty?: number })[];
   slocs: SlocView[];
   ihs: IHView[];
 }
 
-export default function Catalogue({ items: initialItems, slocs, ihs }: CatalogueProps) {
-  // Filters
+type SortOption = "name" | "quantity" | "id";
+
+export default function Catalogue({ slocs, ihs }: CatalogueProps) {
+  // Filters and Sort (server-side)
   const [searchString, setSearchString] = useState("");
-  const [filterSloc, setFilterSloc] = useState<string>("");
-  const [filterHolder, setFilterHolder] = useState<string>("");
-
-  const filteredItems = useMemo(() => {
-    return initialItems.filter((item) => {
-      const matchesSearch = 
-        item.itemDesc.toLowerCase().includes(searchString.toLowerCase()) ||
-        item.nuscSn.toLowerCase().includes(searchString.toLowerCase()) ||
-        item.sloc.slocName.toLowerCase().includes(searchString.toLowerCase()) ||
-        item.ih.ihName.toLowerCase().includes(searchString.toLowerCase()) ||
-        (item.itemRemarks &&
-          item.itemRemarks.toLowerCase().includes(searchString.toLowerCase()))
-      
-      const matchesSloc = !filterSloc || item.sloc.slocName === filterSloc;
-      const matchesHolder = !filterHolder || item.ih.ihName === filterHolder;
-      return matchesSearch && matchesSloc && matchesHolder;
-    });
-  }, [initialItems, searchString, filterSloc, filterHolder]);
-
-  // Sort state
-  type SortOption = "name" | "quantity";
+  const [filterSlocId, setFilterSlocId] = useState<string>("");
+  const [filterIhId, setFilterIhId] = useState<string>("");
   const [sortOption, setSortOption] = useState<SortOption>("name");
   const [sortAsc, setSortAsc] = useState(true);
 
-  const sortedFilteredItems = useMemo(() => {
-    return [...filteredItems].sort((a, b) => {
-      if (sortOption === "name") {
-        return sortAsc 
-          ? a.itemDesc.localeCompare(b.itemDesc)
-          : b.itemDesc.localeCompare(a.itemDesc);
-      }
-      if (sortOption === "quantity") {
-        return sortAsc
-          ? a.itemQty - b.itemQty
-          : b.itemQty - a.itemQty
-      }
-      return 0;
-    });
-  }, [filteredItems, sortOption, sortAsc]);
+  // Pagination
+  const [items, setItems] = useState<ItemView[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const limit = 28;
+  const [loading, setLoading] = useState(false);
 
-  const onInput = (ev: ChangeEvent<HTMLInputElement>) => {
-    setSearchString(ev.target.value);
+  const fetchItems = useCallback(
+    async (pageNum: number, resetItems = false) => {
+      setLoading(true);
+      try {
+        const response = await getItemsPaginated({
+          page: pageNum,
+          limit: limit,
+          sort: sortOption,
+          asc: sortAsc,
+          search: searchString || undefined,
+          slocId: filterSlocId || undefined,
+          ihId: filterIhId || undefined,
+        });
+
+        if (resetItems) {
+          setItems(response.data);
+        } else {
+          setItems((prev) => {
+            const existingIds = new Set(prev.map((item: ItemView) => item.itemId));
+            const newItems = response.data.filter((item: ItemView) => !existingIds.has(item.itemId));
+            return [...prev, ...newItems];
+          });
+        }
+        setTotalPages(response.meta.totalPages);
+        setTotalItems(response.meta.totalItems);
+      } catch (err) {
+        console.error("Failed to fetch items", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [searchString, filterSlocId, filterIhId, sortOption, sortAsc, limit]
+  );
+
+  // Ref for search input
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  // Ref for infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Reset and refetch when filters, sort, or searchString changes
+  // This auto-fetches on any filter change (filterSlocId, filterIhId, sortOption, sortAsc)
+  // and also when searchString changes (which happens on Enter/blur)
+  useEffect(() => {
+    setPage(1);
+    setItems([]);
+    setTotalItems(0);
+    fetchItems(1, true);
+  }, [fetchItems]);
+
+  // Infinite scroll: auto-load when scrolling near bottom
+  useEffect(() => {
+    if (page >= totalPages || loading) return;
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !loading && page < totalPages) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          fetchItems(nextPage);
+        }
+      },
+      {
+        rootMargin: "100px", // Start loading 100px before reaching the sentinel
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [page, totalPages, loading, fetchItems]);
+
+  const updateSearchString = (newSearchString: string) => {
+    if (newSearchString === searchString) {
+      return;
+    }
+    setSearchString(newSearchString);
+  };
+
+  const onSearchKeyDown = (ev: React.KeyboardEvent<HTMLInputElement>) => {
+    if (ev.key === "Enter") {
+      ev.currentTarget.blur(); // Unfocus to trigger blur handler
+      updateSearchString(ev.currentTarget.value);
+    }
+  };
+
+  const onSearchBlur = (ev: React.FocusEvent<HTMLInputElement>) => {
+    updateSearchString(ev.currentTarget.value);
+  };
+
+  const clearSearch = () => {
+    setSearchString("");
+    if (searchInputRef.current) {
+      searchInputRef.current.value = "";
+    }
   };
 
   const defaultFilters = {
-    searchString: "",
-    filterSloc: "",
-    filterHolder: "",
+    filterSlocId: "",
+    filterIhId: "",
     sortOption: "name" as SortOption,
     sortAsc: true,
   };
   const resetFilters = () => {
-    setSearchString(defaultFilters.searchString);
-    setFilterSloc(defaultFilters.filterSloc);
-    setFilterHolder(defaultFilters.filterHolder);
+    setFilterSlocId(defaultFilters.filterSlocId);
+    setFilterIhId(defaultFilters.filterIhId);
     setSortOption(defaultFilters.sortOption);
     setSortAsc(defaultFilters.sortAsc);
   };
 
   // Check if any filter is not in default state
   const hasActiveFilters = 
-    searchString !== defaultFilters.searchString ||
-    filterSloc !== defaultFilters.filterSloc ||
-    filterHolder !== defaultFilters.filterHolder ||
+    filterSlocId !== defaultFilters.filterSlocId ||
+    filterIhId !== defaultFilters.filterIhId ||
     sortOption !== defaultFilters.sortOption ||
     sortAsc !== defaultFilters.sortAsc;
+
+  // Refresh items after create/update/delete (preserves current filters)
+  const refreshItems = useCallback(() => {
+    setPage(1);
+    setItems([]);
+    fetchItems(1, true);
+  }, [fetchItems]);
 
   return (
     <div className="min-h-screen w-full bg-[#0C2C47] p-8">
@@ -91,21 +171,32 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
-          <p className="text-white/80">{sortedFilteredItems.length} ITEMS</p>
+          <p className="text-white/80">{totalItems} ITEMS</p>
         </div>
-        <EditItemModal slocs={slocs} ihs={ihs} mode="add" />
+        <EditItemModal slocs={slocs} ihs={ihs} mode="add" onSuccess={refreshItems} />
       </div>
 
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
+            ref={searchInputRef}
             type="search"
             placeholder="Search items by description, ID, location..."
-            className="w-full pl-10 text-white placeholder:text-white/60 bg-white/10 border-white/20 focus-visible:ring-white/50"
-            onChange={onInput}
-            value={searchString}
+            className="w-full pl-10 pr-10 text-white placeholder:text-white/60 bg-white/10 border-white/20 focus-visible:ring-white/50 [&::-webkit-search-cancel-button]:hidden"
+            onKeyDown={onSearchKeyDown}
+            onBlur={onSearchBlur}
           />
+          {searchString && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white hover:text-white/80 transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       <div className="flex gap-3 flex-wrap">
       
@@ -121,26 +212,26 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
       )}
 
       <select
-           value={filterSloc}
-           onChange={(e) => setFilterSloc(e.target.value)}
+           value={filterSlocId}
+           onChange={(e) => setFilterSlocId(e.target.value)}
            className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
          >
            <option value="" className="text-black">All Locations</option>  {/*Default*/}
            {slocs.map((s) => (
-             <option key={s.slocId} value={s.slocName} className="text-black">
+             <option key={s.slocId} value={s.slocId} className="text-black">
                {s.slocName}
              </option>
            ))}
          </select>
       
       <select
-           value={filterHolder}
-           onChange={(e) => setFilterHolder(e.target.value)}
+           value={filterIhId}
+           onChange={(e) => setFilterIhId(e.target.value)}
            className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
          >
            <option value="" className="text-black">All Holders</option>  {/*Default*/}
            {ihs.map((h) => (
-             <option key={h.ihId} value={h.ihName} className="text-black">
+             <option key={h.ihId} value={h.ihId} className="text-black">
                {h.ihName}
              </option>
            ))}
@@ -153,6 +244,7 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
          >
            <option value="name" className="text-black">Sort by Item Name</option>
            <option value="quantity" className="text-black">Sort by Quantity</option>
+           <option value="id" className="text-black">Sort by ID</option>
          </select>
       
         {/*Asc/Desc Button*/}
@@ -168,18 +260,41 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
       </div>
      
 
-      {sortedFilteredItems.length === 0 ? (
+      {items.length === 0 && !loading ? (
         <div className="py-16 text-center text-white/80">
           <p className="mb-2 text-xl">No items found</p>
           <p>Try adjusting your search criteria</p>
         </div>
+      ) : items.length === 0 && loading ? (
+        <div className="py-16 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Spinner className="size-8 text-white/60" />
+            <p className="text-white/60">Loading items...</p>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sortedFilteredItems.map((item) => (
+          {items.map((item) => (
             <div
               key={item.itemId}
               className="flex flex-col rounded-lg bg-white p-6"
             >
+              {/*Display Image*/}
+              <div className="relative w-full">
+                <div className="absolute top-8 right-0 h-32 w-32 bg-gray-100 flex items-center justify-center rounded-bl-lg overflow-hidden">
+                  {item.itemImage ? (
+                    <img
+                    src={item.itemImage}
+                    alt={item.itemDesc}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    />
+                  ) : (
+                    <span className="text-gray-400">No Image</span>  
+                  )}
+                </div>
+              </div>
+
               <h3 className="mb-3 text-center text-xl font-bold text-gray-900">
                 {item.itemDesc}
               </h3>
@@ -189,17 +304,19 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
                 </p>
                 <p>
                   <span className="font-semibold">Storage Location:</span>{" "}
-                  {item.sloc.slocName}
+                  {item.sloc.slocName}  
                 </p>
                 <p>
                   <span className="font-semibold">Inventory Holder:</span>{" "}
                   {item.ih.ihName}
                 </p>
-                {item.itemRemarks && (
-                  <p className="mt-3 text-xs leading-relaxed text-[#A1A1A1]">
-                    {item.itemRemarks}
-                  </p>
-                )}
+                <p className="mt-3 text-xs leading-relaxed text-[#A1A1A1]">
+                  {item.itemRemarks ? (
+                    item.itemRemarks
+                  ) : (
+                    <span className="text-gray-400 italic">-</span>
+                  )}
+                </p>
               </div>
 
               <div className="mb-4 pt-4 border-t border-gray-100">
@@ -225,7 +342,6 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
                   mode="edit"
                   item={{
                     itemId: item.itemId,
-                    nuscSn: item.nuscSn,
                     itemDesc: item.itemDesc,
                     itemQty: item.itemQty,
                     itemUom: item.itemUom,
@@ -236,14 +352,34 @@ export default function Catalogue({ items: initialItems, slocs, ihs }: Catalogue
                     itemRfpNumber: item.itemRfpNumber,
                     itemImage: item.itemImage,
                   }}
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  }
+                  onSuccess={refreshItems}
                 />
                 <DeleteItemButton
                   itemId={Number(item.itemId)}
                   itemDesc={item.itemDesc}
+                  onDelete={refreshItems}
                 />
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Infinite scroll sentinel - triggers loading when scrolled into view */}
+      {/* Only show sentinel when we have items (not during initial load/filter reset) */}
+      {items.length > 0 && page < totalPages && (
+        <div ref={sentinelRef} className="h-20 flex items-center justify-center">
+          {loading && (
+            <div className="flex items-center gap-3">
+              <Spinner className="size-5 text-white/60" />
+              <p className="text-white/60">Loading more items...</p>
+            </div>
+          )}
         </div>
       )}
     </div>

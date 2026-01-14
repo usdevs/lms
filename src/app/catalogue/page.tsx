@@ -3,8 +3,7 @@ import { getItems, getSlocs, getIHs } from "@/lib/utils/server/item";
 import prisma from "@/lib/prisma";
 
 export default async function CataloguePage() {
-  const [items, slocs, ihs] = await Promise.all([
-    getItems(),
+  const [slocs, ihs] = await Promise.all([
     getSlocs(),
     getIHs(),
   ]);

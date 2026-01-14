@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod/v4";
+import fs from "fs";
+import path from "path";
 
 import prisma from "@/lib/prisma";
 import { formDataToObject } from "@/lib/utils";
@@ -10,6 +12,8 @@ import {
   EditItemServerSchema,
   NewItemServerSchema,
 } from "@/lib/schema/item";
+import { Prisma } from "@prisma/client";
+import { ItemPaginationParams, PaginatedItemsResponse } from "../types/items";
 
 export async function createItem(formData: FormData) {
   let data;
@@ -28,22 +32,9 @@ export async function createItem(formData: FormData) {
     };
   }
 
-  // Check if NUSC SN already exists
-  const existingItem = await prisma.item.findUnique({
-    // Temporary cast while Prisma client types catch up with schema
-    where: { nuscSn: data.nuscSn.trim() },
-  });
-  if (existingItem) {
-    return {
-      success: false,
-      error: `NUSC SN "${data.nuscSn.trim()}" already exists. Please use a different value.`,
-    };
-  }
-
   try {
     await prisma.item.create({
       data: {
-        nuscSn: data.nuscSn.trim(),
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
         itemIh: data.itemIh.trim(),
@@ -92,27 +83,36 @@ export async function updateItem(itemId: number, formData: FormData) {
       error: "Unknown error occurred. Please contact admin.",
     };
   }
-
-  const newNuscSn = data.nuscSn.trim();
-
-  // If NUSC SN is being changed or even re-set, ensure no other item already has it
-  const existingWithNuscSn = await prisma.item.findUnique({
-    where: { nuscSn: newNuscSn },
-  });
-
-  if (existingWithNuscSn && existingWithNuscSn.itemId !== itemId) {
-    return {
-      success: false,
-      error: `NUSC SN "${newNuscSn}" already exists. Please use a different value.`,
-    };
-  }
+  
+  const deleteImage = formData.get("deleteImage") === "true"; // Checks whether to delete   
 
   try {
+    // Delete image 
+    const fs = require("fs");
+    const path = require("path");
+
+    if (deleteImage && data.itemImage) {
+      try {
+        const filePath = path.join(
+          process.cwd(),
+          "public",
+          data.itemImage.replace(/^\/+/, "")
+        );
+
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log("Deleted old image:", filePath);
+        }
+        data.itemImage = null; // Clear from database
+      } catch (err) {
+        console.error("Failed to delete old image:", err);
+      }
+    }
+
     await prisma.item.update({
       where: { itemId: itemId as any },
       data: {
         itemId: itemId,
-        nuscSn: newNuscSn,
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
         itemIh: data.itemIh.trim(),
@@ -185,3 +185,128 @@ export async function deleteItem(itemId: number) {
   return { success: true };
 }
 
+export async function getItemsPaginated(params: ItemPaginationParams): Promise<PaginatedItemsResponse> {
+  try {
+    const skip = (params.page - 1) * params.limit;
+
+    // Build where clause for filters with proper typing
+    const conditions: Prisma.ItemWhereInput[] = [];
+
+    if (params.search) {
+      const searchConditions: Prisma.ItemWhereInput[] = [
+        { itemDesc: { contains: params.search, mode: "insensitive" } },
+        { itemRemarks: { contains: params.search, mode: "insensitive" } },
+        { sloc: { slocName: { contains: params.search, mode: "insensitive" } } },
+        { ih: { ihName: { contains: params.search, mode: "insensitive" } } },
+      ];
+
+      // Only search by itemId if the search string is a valid number
+      const itemIdNumber = parseInt(params.search, 10);
+      if (!isNaN(itemIdNumber) && itemIdNumber.toString() === params.search.trim()) {
+        searchConditions.push({ itemId: { equals: itemIdNumber } });
+      }
+
+      conditions.push({
+        OR: searchConditions,
+      });
+    }
+
+    if (params.slocId) {
+      conditions.push({ itemSloc: params.slocId });
+    }
+
+    if (params.ihId) {
+      conditions.push({ itemIh: params.ihId });
+    }
+
+    // Build where clause
+    const where: Prisma.ItemWhereInput =
+      conditions.length > 0 ? { AND: conditions } : {};
+
+    // Build orderBy clause with proper typing
+    const orderBy: Prisma.ItemOrderByWithRelationInput =
+      params.sort === "name"
+        ? { itemDesc: params.asc ? "asc" : "desc" }
+        : params.sort === "quantity"
+          ? { itemQty: params.asc ? "asc" : "desc" }
+          : params.sort === "id"
+            ? { itemId: params.asc ? "asc" : "desc" }
+            : { itemId: "desc" };
+
+    // Get filtered items with pagination
+    const items = await prisma.item.findMany({
+      where,
+      skip,
+      take: params.limit,
+      orderBy,
+      select: {
+        itemId: true,
+        itemDesc: true,
+        itemQty: true,
+        itemUom: true,
+        itemRemarks: true,
+        itemPurchaseDate: true,
+        itemRfpNumber: true,
+        itemImage: true,
+        itemSloc: true,
+        itemIh: true,
+        sloc: {
+          select: {
+            slocId: true,
+            slocName: true,
+          },
+        },
+        ih: {
+          select: {
+            ihId: true,
+            ihName: true,
+          },
+        },
+      },
+    });
+
+    // Count total items matching filters
+    const totalItems = await prisma.item.count({ where });
+    const totalPages = Math.ceil(totalItems / params.limit);
+
+    return {
+      data: items,
+      meta: {
+        page: params.page,
+        pageSize: params.limit,
+        totalItems,
+        totalPages,
+      },
+    };
+
+  } catch (error) {
+    console.error("Failed to fetch paginated items:", error);
+    throw new Error("Failed to fetch items");
+  }
+}
+
+export async function uploadItemImage(formData: FormData): Promise<{ url: string } | { error: string }> {
+  try {
+    const file = formData.get("photo") as File;
+
+    if (!file) {
+      return { error: "No file uploaded" };
+    }
+
+    const uploadsDir = path.join(process.cwd(), "public/uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const uniqueName = `${Date.now()}-${file.name}`;
+    const filePath = path.join(uploadsDir, uniqueName);
+    const arrayBuffer = await file.arrayBuffer();
+    fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+
+    const url = `/uploads/${uniqueName}`;
+    return { url };
+  } catch (error) {
+    console.error("Failed to upload file:", error);
+    return { error: "Failed to upload file" };
+  }
+}

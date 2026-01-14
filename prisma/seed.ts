@@ -101,68 +101,81 @@ async function main() {
     },
   });
 
-  // 5. Create Items
-  console.log('Creating items...');
-  const item1 = await prisma.item.create({
-    data: {
-      nuscSn: 'ITEM001',
-      itemDesc: 'Laptop Computer',
-      itemSloc: sloc1.slocId,
-      itemIh: ih1.ihId,
-      itemQty: 5,
-      itemUom: 'units',
-      itemPurchaseDate: new Date('2024-01-15'),
-      itemRfpNumber: 'RFP-2024-001',
-      itemRemarks: 'Dell Latitude laptops',
-    },
-  });
-  const item2 = await prisma.item.create({
-    data: {
-      nuscSn: 'ITEM002',
-      itemDesc: 'Projector',
-      itemSloc: sloc1.slocId,
-      itemIh: ih1.ihId,
-      itemQty: 3,
-      itemUom: 'units',
-      itemPurchaseDate: new Date('2024-02-20'),
-      itemRfpNumber: 'RFP-2024-002',
-    },
-  });
-  const item3 = await prisma.item.create({
-    data: {
-      nuscSn: 'ITEM003',
-      itemDesc: 'Microphone Set',
-      itemSloc: sloc2.slocId,
-      itemIh: ih2.ihId,
-      itemQty: 10,
-      itemUom: 'sets',
-      itemPurchaseDate: new Date('2024-03-10'),
-      itemRemarks: 'Wireless microphones',
-    },
-  });
-  const item4 = await prisma.item.create({
-    data: {
-      nuscSn: 'ITEM004',
-      itemDesc: 'Sound System',
-      itemSloc: sloc3.slocId,
-      itemIh: ih3.ihId,
-      itemQty: 2,
-      itemUom: 'units',
-      itemPurchaseDate: new Date('2024-04-05'),
-      itemRfpNumber: 'RFP-2024-003',
-    },
-  });
-  const item5 = await prisma.item.create({
-    data: {
-      nuscSn: 'ITEM005',
-      itemDesc: 'Table',
-      itemSloc: sloc2.slocId,
-      itemIh: ih2.ihId,
-      itemQty: 20,
-      itemUom: 'units',
-      itemPurchaseDate: new Date('2024-05-12'),
-    },
-  });
+  // 5. Create Items (100 items for pagination testing)
+  console.log('Creating 100 items...');
+  
+  const itemDescriptions = [
+    'Laptop Computer', 'Projector', 'Microphone Set', 'Sound System', 'Table',
+    'Chair', 'Whiteboard', 'Marker Set', 'Extension Cord', 'HDMI Cable',
+    'USB Hub', 'Webcam', 'Keyboard', 'Mouse', 'Monitor',
+    'Printer', 'Scanner', 'Document Camera', 'Speaker System', 'Mixer Board',
+    'Microphone Stand', 'Headset', 'Tripod', 'Camera', 'Video Recorder',
+    'LED Panel', 'Stage Light', 'Fog Machine', 'Laser Pointer', 'Remote Control',
+    'Battery Pack', 'Charging Station', 'Tablet', 'Smartphone', 'Router',
+    'Switch', 'Access Point', 'Ethernet Cable', 'Power Strip', 'Surge Protector',
+    'Tool Kit', 'Screwdriver Set', 'Measuring Tape', 'Level', 'Hammer',
+    'Drill', 'Saw', 'Wrench Set', 'Pliers', 'Wire Cutters',
+    'First Aid Kit', 'Fire Extinguisher', 'Safety Cone', 'Warning Sign', 'Barrier Tape',
+    'Tent', 'Canopy', 'Tablecloth', 'Chair Cover', 'Banner Stand',
+    'Display Board', 'Easel', 'Flip Chart', 'Poster Board', 'Name Tag',
+    'Lanyard', 'Badge Holder', 'Clipboard', 'Folder', 'Binder',
+    'Stapler', 'Paper Clip', 'Rubber Band', 'Tape Dispenser', 'Label Maker',
+    'Calculator', 'Stopwatch', 'Timer', 'Thermometer', 'Barometer',
+    'Measuring Scale', 'Ruler', 'Protractor', 'Compass', 'Magnifying Glass',
+    'Flashlight', 'Lantern', 'Generator', 'Extension Ladder', 'Step Stool',
+    'Storage Box', 'Filing Cabinet', 'Bookshelf', 'Desk Organizer', 'Pen Holder',
+    'Notebook', 'Sticky Note', 'Highlighter', 'Eraser', 'Sharpener',
+  ];
+
+  const uoms = ['units', 'sets', 'pairs', 'boxes', 'packs', 'rolls', 'sheets', 'pieces'];
+  const slocs = [sloc1, sloc2, sloc3];
+  const ihs = [ih1, ih2, ih3];
+  
+  const items = [];
+  for (let i = 1; i <= 100; i++) {
+    const sloc = slocs[Math.floor(Math.random() * slocs.length)];
+    const ih = ihs[Math.floor(Math.random() * ihs.length)];
+    const description = itemDescriptions[Math.floor(Math.random() * itemDescriptions.length)];
+    const uom = uoms[Math.floor(Math.random() * uoms.length)];
+    const quantity = Math.floor(Math.random() * 50) + 1; // 1-50
+    const year = 2023 + Math.floor(Math.random() * 2); // 2023 or 2024
+    const month = Math.floor(Math.random() * 12);
+    const day = Math.floor(Math.random() * 28) + 1;
+    const purchaseDate = new Date(year, month, day);
+    
+    // Some items have RFP numbers, some don't
+    const hasRfp = Math.random() > 0.3;
+    const rfpNumber = hasRfp ? `RFP-${year}-${String(i).padStart(3, '0')}` : null;
+    
+    // Some items have remarks, some don't
+    const hasRemarks = Math.random() > 0.5;
+    const remarks = hasRemarks ? [
+      'Brand new condition',
+      'Requires maintenance',
+      'Reserved for events',
+      'Available for loan',
+      'High demand item',
+      'Needs replacement',
+      'Excellent condition',
+      'Minor wear and tear',
+    ][Math.floor(Math.random() * 8)] : null;
+
+    const item = await prisma.item.create({
+      data: {
+        itemDesc: description,
+        itemSloc: sloc.slocId,
+        itemIh: ih.ihId,
+        itemQty: quantity,
+        itemUom: uom,
+        itemPurchaseDate: purchaseDate,
+        itemRfpNumber: rfpNumber,
+        itemRemarks: remarks,
+      },
+    });
+    items.push(item);
+  }
+  
+  console.log(`Created ${items.length} items`);
 
   // 6. Create Loan Requests
   console.log('Creating loan requests...');
@@ -204,56 +217,59 @@ async function main() {
 
   // 7. Create Loan Item Details
   console.log('Creating loan item details...');
-  await prisma.loanItemDetail.create({
-    data: {
-      refNo: loanRequest1.refNo,
-      itemId: item1.itemId,
-      loanQty: 2,
-      loanStatus: 'loaned',
-      itemSlocAtLoan: sloc1.slocId,
-      itemIhAtLoan: ih1.ihId,
-    },
-  });
-  await prisma.loanItemDetail.create({
-    data: {
-      refNo: loanRequest1.refNo,
-      itemId: item2.itemId,
-      loanQty: 1,
-      loanStatus: 'loaned',
-      itemSlocAtLoan: sloc1.slocId,
-      itemIhAtLoan: ih1.ihId,
-    },
-  });
-  await prisma.loanItemDetail.create({
-    data: {
-      refNo: loanRequest2.refNo,
-      itemId: item3.itemId,
-      loanQty: 5,
-      loanStatus: 'pending',
-      itemSlocAtLoan: sloc2.slocId,
-      itemIhAtLoan: ih2.ihId,
-    },
-  });
-  await prisma.loanItemDetail.create({
-    data: {
-      refNo: loanRequest2.refNo,
-      itemId: item4.itemId,
-      loanQty: 1,
-      loanStatus: 'pending',
-      itemSlocAtLoan: sloc3.slocId,
-      itemIhAtLoan: ih3.ihId,
-    },
-  });
-  await prisma.loanItemDetail.create({
-    data: {
-      refNo: loanRequest3.refNo,
-      itemId: item5.itemId,
-      loanQty: 10,
-      loanStatus: 'approved',
-      itemSlocAtLoan: sloc2.slocId,
-      itemIhAtLoan: ih2.ihId,
-    },
-  });
+  // Use first few items from the generated items array
+  if (items.length >= 5) {
+    await prisma.loanItemDetail.create({
+      data: {
+        refNo: loanRequest1.refNo,
+        itemId: items[0].itemId,
+        loanQty: 2,
+        loanStatus: 'loaned',
+        itemSlocAtLoan: sloc1.slocId,
+        itemIhAtLoan: ih1.ihId,
+      },
+    });
+    await prisma.loanItemDetail.create({
+      data: {
+        refNo: loanRequest1.refNo,
+        itemId: items[1].itemId,
+        loanQty: 1,
+        loanStatus: 'loaned',
+        itemSlocAtLoan: sloc1.slocId,
+        itemIhAtLoan: ih1.ihId,
+      },
+    });
+    await prisma.loanItemDetail.create({
+      data: {
+        refNo: loanRequest2.refNo,
+        itemId: items[2].itemId,
+        loanQty: 5,
+        loanStatus: 'pending',
+        itemSlocAtLoan: sloc2.slocId,
+        itemIhAtLoan: ih2.ihId,
+      },
+    });
+    await prisma.loanItemDetail.create({
+      data: {
+        refNo: loanRequest2.refNo,
+        itemId: items[3].itemId,
+        loanQty: 1,
+        loanStatus: 'pending',
+        itemSlocAtLoan: sloc3.slocId,
+        itemIhAtLoan: ih3.ihId,
+      },
+    });
+    await prisma.loanItemDetail.create({
+      data: {
+        refNo: loanRequest3.refNo,
+        itemId: items[4].itemId,
+        loanQty: 10,
+        loanStatus: 'approved',
+        itemSlocAtLoan: sloc2.slocId,
+        itemIhAtLoan: ih2.ihId,
+      },
+    });
+  }
 
   console.log('Seed completed successfully!');
   console.log('\nSummary:');

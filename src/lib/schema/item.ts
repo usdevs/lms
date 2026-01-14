@@ -7,7 +7,6 @@ const optionalDate = z.preprocess(
 );
 
 export const NewItemClientSchema = z.object({
-  nuscSn: z.string().min(1, "NUSC SN is required"),
   itemDesc: z.string().min(1, "Description is required"),
   itemSloc: z.string().min(1, "Storage Location is required"),
   itemIh: z.string().min(1, "Inventory Holder is required"),
@@ -35,7 +34,6 @@ export const DeleteItemSchema = z.object({
 
 export const EditItemClientSchema = z.object({
   itemId: z.coerce.number().int().positive(),
-  nuscSn: z.string().min(1, "NUSC SN is required"),
   itemDesc: z.string().min(1, "Description is required"),
   itemSloc: z.string().min(1, "Storage Location is required"),
   itemIh: z.string().min(1, "Inventory Holder is required"),
