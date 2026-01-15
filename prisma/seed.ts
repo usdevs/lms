@@ -86,19 +86,19 @@ async function main() {
   // 5. Create Items
   console.log('Creating items...');
   const item1 = await prisma.item.create({
-    data: { nuscSn: 'ITEM001', itemDesc: 'Laptop', itemSloc: sloc1.slocId, itemIh: ih1.ihId, itemQty: 5, itemUom: 'units' }
+    data: { itemDesc: 'Laptop', itemSloc: sloc1.slocId, itemIh: ih1.ihId, itemQty: 5, itemUom: 'units' }
   });
   const item2 = await prisma.item.create({
-    data: { nuscSn: 'ITEM002', itemDesc: 'Projector', itemSloc: sloc1.slocId, itemIh: ih1.ihId, itemQty: 3, itemUom: 'units' }
+    data: { itemDesc: 'Projector', itemSloc: sloc1.slocId, itemIh: ih1.ihId, itemQty: 3, itemUom: 'units' }
   });
   const item3 = await prisma.item.create({
-    data: { nuscSn: 'ITEM003', itemDesc: 'Mic', itemSloc: sloc2.slocId, itemIh: ih2.ihId, itemQty: 10, itemUom: 'sets' }
+    data: { itemDesc: 'Mic', itemSloc: sloc2.slocId, itemIh: ih2.ihId, itemQty: 10, itemUom: 'sets' }
   });
   const item4 = await prisma.item.create({
-    data: { nuscSn: 'ITEM004', itemDesc: 'Sound System', itemSloc: sloc3.slocId, itemIh: ih3.ihId, itemQty: 2, itemUom: 'units' }
+    data: { itemDesc: 'Sound System', itemSloc: sloc3.slocId, itemIh: ih3.ihId, itemQty: 2, itemUom: 'units' }
   });
   const item5 = await prisma.item.create({
-    data: { nuscSn: 'ITEM005', itemDesc: 'Table', itemSloc: sloc2.slocId, itemIh: ih2.ihId, itemQty: 20, itemUom: 'units' }
+    data: { itemDesc: 'Table', itemSloc: sloc2.slocId, itemIh: ih2.ihId, itemQty: 20, itemUom: 'units' }
   });
 
   // 6. Create Loan Requests

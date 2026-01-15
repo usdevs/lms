@@ -62,7 +62,6 @@ model IH {
   ihId        String           @id @map("ih_id")
   ihName      String           @map("ih_name")
   ihType      IHType           @default(INDIVIDUAL) @map("ih_type")
-  ihPocTele   String?          @map("ih_poc_tele") // Deprecated: use IHMember instead
   members     IHMember[] // Multiple POCs via IHMember
   items       Item[]           @relation("ItemIH")
   loanDetails LoanItemDetail[] @relation("LoanItemDetailIH")
