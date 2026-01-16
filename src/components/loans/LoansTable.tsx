@@ -42,7 +42,6 @@ type LoanWithDetails = {
     loanStatus: string;
     item: {
       itemDesc: string;
-      nuscSn: string;
     };
   }[];
 };
@@ -250,7 +249,7 @@ export function LoansTable({ data }: LoansTableProps) {
                       <TableCell>
                         <div className="flex flex-col">
                           <span>{detail.item.itemDesc}</span>
-                          <span className="text-xs text-muted-foreground">{detail.item.nuscSn}</span>
+                          <span className="text-xs text-muted-foreground">{detail.itemId}</span>
                         </div>
                       </TableCell>
                       <TableCell>{detail.loanQty}</TableCell>

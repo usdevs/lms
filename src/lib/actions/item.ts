@@ -265,12 +265,58 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
       },
     });
 
+    // Get item IDs to fetch loan data
+    const itemIds = items.map(item => item.itemId);
+
+    // Calculate inventory stats for the fetched items
+    const [pendingCounts, onLoanCounts] = await Promise.all([
+      itemIds.length > 0
+        ? prisma.loanItemDetail.groupBy({
+            by: ['itemId'],
+            where: {
+              itemId: { in: itemIds },
+              loanStatus: 'PENDING',
+            },
+            _sum: { loanQty: true },
+          })
+        : [],
+      itemIds.length > 0
+        ? prisma.loanItemDetail.groupBy({
+            by: ['itemId'],
+            where: {
+              itemId: { in: itemIds },
+              loanStatus: 'ON_LOAN',
+            },
+            _sum: { loanQty: true },
+          })
+        : [],
+    ]);
+
+    // Create maps for quick lookup
+    const pendingMap = new Map(pendingCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
+    const onLoanMap = new Map(onLoanCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
+
+    // Enrich items with totalQty and netQty
+    const enrichedItems = items.map(item => {
+      const onLoan = onLoanMap.get(item.itemId) || 0;
+      const pending = pendingMap.get(item.itemId) || 0;
+
+      const totalQty = item.itemQty + onLoan;
+      const netQty = Math.max(0, item.itemQty - pending);
+
+      return {
+        ...item,
+        totalQty,
+        netQty,
+      };
+    });
+
     // Count total items matching filters
     const totalItems = await prisma.item.count({ where });
     const totalPages = Math.ceil(totalItems / params.limit);
 
     return {
-      data: items,
+      data: enrichedItems,
       meta: {
         page: params.page,
         pageSize: params.limit,

@@ -19,7 +19,7 @@ export default async function LoanDashboardPage() {
 
 
   const items = await prisma.item.findMany({
-    select: { itemId: true, itemDesc: true, nuscSn: true, itemQty: true },
+    select: { itemId: true, itemDesc: true, itemQty: true },
     orderBy: { itemDesc: 'asc' }
   });
 

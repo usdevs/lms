@@ -22,7 +22,6 @@ import { Input } from "@/components/ui/input";
 export type ItemOption = {
     itemId: number;
     itemDesc: string;
-    nuscSn: string;
     itemQty: number; // Remaining stock on shelf (for info)
     totalQty?: number; // Total physical assets
     netQty?: number; // Available - Pending (Effective available)
@@ -81,7 +80,7 @@ export function ItemSelector({ availableItems, onAddItem }: ItemSelectorProps) {
                                         return (
                                             <CommandItem
                                                 key={item.itemId}
-                                                value={item.itemDesc + " " + item.nuscSn}
+                                                value={item.itemDesc + " " + item.itemId}
                                                 onSelect={() => {
                                                     setSelectedItemId(item.itemId);
                                                     setOpen(false);
@@ -98,7 +97,7 @@ export function ItemSelector({ availableItems, onAddItem }: ItemSelectorProps) {
                                                 <div className="flex flex-col w-full">
                                                     <span className="font-medium">{item.itemDesc}</span>
                                                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                                                        <span>SN: {item.nuscSn}</span>
+                                                        <span>SN: {item.itemId}</span>
                                                         <span className={cn(effectiveStock > 0 ? "text-green-600 font-bold" : "text-destructive")}>
                                                             Avail: {effectiveStock}
                                                         </span>

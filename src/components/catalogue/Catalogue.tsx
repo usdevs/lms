@@ -10,11 +10,10 @@ import EditItemModal from "./EditItemModal";
 import DeleteItemButton from "./DeleteItemButton";
 import { getItemsPaginated } from "@/lib/actions/item";
 import { IHView } from "@/lib/types/ih";
-import { ItemView } from "@/lib/types/items";
+import { EnrichedItemView } from "@/lib/types/items";
 import { SlocView } from "@/lib/types/slocs";
 import { DashboardNav } from "@/components/DashboardNav";
 interface CatalogueProps {
-  items: (ItemView & { totalQty?: number; netQty?: number })[];
   slocs: SlocView[];
   ihs: IHView[];
 }
@@ -30,7 +29,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   const [sortAsc, setSortAsc] = useState(true);
 
   // Pagination
-  const [items, setItems] = useState<ItemView[]>([]);
+  const [items, setItems] = useState<EnrichedItemView[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -55,8 +54,8 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           setItems(response.data);
         } else {
           setItems((prev) => {
-            const existingIds = new Set(prev.map((item: ItemView) => item.itemId));
-            const newItems = response.data.filter((item: ItemView) => !existingIds.has(item.itemId));
+            const existingIds = new Set(prev.map((item: EnrichedItemView) => item.itemId));
+            const newItems = response.data.filter((item: EnrichedItemView) => !existingIds.has(item.itemId));
             return [...prev, ...newItems];
           });
         }
@@ -300,9 +299,6 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
               </h3>
               <div className="mb-4 flex-1 space-y-2 text-sm text-gray-700">
                 <p>
-                  <span className="font-semibold">Nusc SN:</span> {item.nuscSn}
-                </p>
-                <p>
                   <span className="font-semibold">Storage Location:</span>{" "}
                   {item.sloc.slocName}  
                 </p>
@@ -323,12 +319,12 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                 <div className="grid grid-cols-2 gap-x-6">
                   <div>
                     <span className="font-semibold block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Total Owned</span>
-                    <span className="text-xl font-medium text-gray-900">{item.totalQty ?? "N/A"}</span>
+                    <span className="text-xl font-medium text-gray-900">{item.totalQty}</span>
                   </div>
                   <div>
                     <span className="font-semibold block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Available</span>
-                    <span className={cn("text-xl font-bold", (item.netQty ?? item.itemQty) > 0 ? "text-green-600" : "text-destructive")}>
-                      {item.netQty ?? item.itemQty}
+                    <span className={cn("text-xl font-bold", item.netQty > 0 ? "text-green-600" : "text-destructive")}>
+                      {item.netQty}
                     </span>
                   </div>
                 </div>
