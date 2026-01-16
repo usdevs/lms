@@ -3,15 +3,66 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Authentication & Authorization Models
+
+enum UserRole {
+  REQUESTER // Can view catalogue, create loan requests
+  IH // Can view catalogue, approve loans for their IHs
+  LOGS // Full access: manage items, approve all loans
+  ADMIN // Super admin: manage users, configure system
+}
+
+enum IHType {
+  INDIVIDUAL // Single person
+  GROUP // IG/club/committee
+  DEPARTMENT // School department
+}
+
+model User {
+  userId     Int      @id @default(autoincrement()) @map("user_id")
+  telegramId BigInt   @unique @map("telegram_id")
+  username   String?  @map("username")
+  firstName  String   @map("first_name")
+  lastName   String?  @map("last_name")
+  photoUrl   String?  @map("photo_url")
+  role       UserRole @default(REQUESTER)
+  nusnetId   String?  @unique @map("nusnet_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  ihMemberships IHMember[] // IHs this user is a member of
+
+  // Relations for LoanRequest migration
+  loanRequests LoanRequest[] @relation("RequesterLoanRequests")
+  handledLoans LoanRequest[] @relation("LoggieLoanRequests")
+
+  @@map("user")
+}
+
+model IHMember {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  ihId      String   @map("ih_id")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  ih   IH   @relation(fields: [ihId], references: [ihId], onDelete: Cascade)
+
+  @@unique([userId, ihId])
+  @@map("ih_member")
 }
 
 model IH {
   ihId        String           @id @map("ih_id")
   ihName      String           @map("ih_name")
-  ihPocTele   String?          @map("ih_poc_tele")
+  ihType      IHType           @default(INDIVIDUAL) @map("ih_type")
+  members     IHMember[] // Multiple POCs via IHMember
   items       Item[]           @relation("ItemIH")
   loanDetails LoanItemDetail[] @relation("LoanItemDetailIH")
 
@@ -53,40 +104,25 @@ model LoanItemDetail {
 }
 
 model LoanRequest {
-  refNo         Int              @id @default(autoincrement()) @map("ref_no")
-  loanDateStart DateTime         @map("loan_date_start")
-  loanDateEnd   DateTime         @map("loan_date_end")
-  reqId         Int              @map("req_id")
-  loggieId      Int?             @map("loggie_id")
+  refNo         Int      @id @default(autoincrement()) @map("ref_no")
+  loanDateStart DateTime @map("loan_date_start")
+  loanDateEnd   DateTime @map("loan_date_end")
+
+  // Relations to User (Migrated)
+  reqId    Int  @map("req_id") // Was newReqId
+  loggieId Int? @map("loggie_id") // Was newLoggieId
+
   organisation  String?
-  eventDetails  String?          @map("event_details")
-  eventLocation String?          @map("event_location")
-  requestStatus String           @map("request_status")
-  requester     Requester        @relation(fields: [reqId], references: [reqId], onDelete: Cascade, onUpdate: Cascade)
-  loggie        Loggies?         @relation(fields: [loggieId], references: [loggieId], onDelete: Cascade, onUpdate: Cascade)
-  loanDetails   LoanItemDetail[]
+  eventDetails  String? @map("event_details")
+  eventLocation String? @map("event_location")
+  requestStatus String  @map("request_status")
+
+  requester User  @relation("RequesterLoanRequests", fields: [reqId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+  loggie    User? @relation("LoggieLoanRequests", fields: [loggieId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  loanDetails LoanItemDetail[]
 
   @@map("loan_request")
-}
-
-model Loggies {
-  loggieId     Int           @id @default(autoincrement()) @map("loggie_id")
-  loggieName   String        @map("loggie_name")
-  loggieTele   String?       @map("loggie_tele")
-  loggieNusnet String        @unique @map("loggie_nusnet")
-  loanRequests LoanRequest[]
-
-  @@map("loggies")
-}
-
-model Requester {
-  reqId         Int           @id @default(autoincrement()) @map("req_id")
-  reqName       String        @map("req_name")
-  reqTelehandle String?       @map("req_telehandle")
-  reqNusnet     String        @unique @map("req_nusnet")
-  loanRequests  LoanRequest[]
-
-  @@map("requester")
 }
 
 model Sloc {
