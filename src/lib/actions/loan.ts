@@ -3,13 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
-import { CreateLoanSchema, ReturnItemSchema } from "@/lib/schema/loan";
-
-export interface CreateLoanResult {
-    success: boolean;
-    error?: string;
-    errors?: Record<string, string[]>;
-}
+import { CreateLoanSchema } from "@/lib/schema/loan";
+import { CreateLoanResult, RequestStatus, LoanStatus } from "../types/loans";
 
 export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promise<CreateLoanResult> {
     const parseResult = CreateLoanSchema.safeParse(data);
@@ -34,24 +29,31 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
 
     try {
         await prisma.$transaction(async (tx) => {
-            // Resolve Requester
+            // Resolve Requester (User)
             let finalReqId = requesterId;
 
             if (!finalReqId && newRequester) {
-
-                const existing = await tx.requester.findUnique({ where: { reqNusnet: newRequester.nusnet } });
+                // Check if user with this NUSNET ID already exists
+                const existing = await tx.user.findUnique({ where: { nusnetId: newRequester.nusnet } });
                 if (existing) {
-                    throw new Error(`Requester with NUSNET ${newRequester.nusnet} already exists.`);
+                    throw new Error(`User with NUSNET ${newRequester.nusnet} already exists.`);
                 }
 
-                const created = await tx.requester.create({
+                // Generate placeholder telegramId if not provided
+                // Use timestamp-based value to ensure uniqueness
+                const telegramId = newRequester.telegramId || BigInt(Date.now() * 1000 + Math.floor(Math.random() * 1000));
+
+                const created = await tx.user.create({
                     data: {
-                        reqName: newRequester.name,
-                        reqNusnet: newRequester.nusnet,
-                        reqTelehandle: newRequester.telehandle || null,
+                        firstName: newRequester.firstName,
+                        lastName: newRequester.lastName || null,
+                        nusnetId: newRequester.nusnet,
+                        username: newRequester.username || null,
+                        telegramId: telegramId,
+                        role: "REQUESTER", // Default role for new requesters
                     }
                 });
-                finalReqId = created.reqId;
+                finalReqId = created.userId;
             }
 
             if (!finalReqId) throw new Error("Requester not identified");
@@ -66,7 +68,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                     organisation: organisation || null,
                     eventDetails: eventDetails || null,
                     eventLocation: eventLocation || null,
-                    requestStatus: "PENDING",
+                    requestStatus: RequestStatus.PENDING,
                 }
             });
 
@@ -79,7 +81,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                 const pendingAgg = await tx.loanItemDetail.aggregate({
                     where: {
                         itemId: loanItem.itemId,
-                        loanStatus: "PENDING"
+                        loanStatus: LoanStatus.PENDING
                     },
                     _sum: {
                         loanQty: true
@@ -99,7 +101,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                         refNo: loanRequest.refNo,
                         itemId: loanItem.itemId,
                         loanQty: loanItem.loanQty,
-                        loanStatus: "PENDING",
+                        loanStatus: LoanStatus.PENDING,
                         itemSlocAtLoan: dbItem.itemSloc,
                         itemIhAtLoan: dbItem.itemIh,
                     }
@@ -125,7 +127,7 @@ export async function approveLoan(refNo: number) {
             });
 
             if (!request) throw new Error("Loan request not found");
-            if (request.requestStatus !== "PENDING") throw new Error("Loan is not pending");
+            if (request.requestStatus !== RequestStatus.PENDING) throw new Error("Loan is not pending");
 
             // Deduct stock for each item
             for (const detail of request.loanDetails) {
@@ -140,13 +142,13 @@ export async function approveLoan(refNo: number) {
 
                 await tx.loanItemDetail.update({
                     where: { loanDetailId: detail.loanDetailId },
-                    data: { loanStatus: "ON_LOAN" }
+                    data: { loanStatus: LoanStatus.ON_LOAN }
                 });
             }
 
             await tx.loanRequest.update({
                 where: { refNo },
-                data: { requestStatus: "ONGOING" }
+                data: { requestStatus: RequestStatus.ONGOING }
             });
         });
 
@@ -163,17 +165,17 @@ export async function rejectLoan(refNo: number) {
         await prisma.$transaction(async (tx) => {
             const request = await tx.loanRequest.findUnique({ where: { refNo } });
             if (!request) throw new Error("Loan request not found");
-            if (request.requestStatus !== "PENDING") throw new Error("Loan is not pending");
+            if (request.requestStatus !== RequestStatus.PENDING) throw new Error("Loan is not pending");
 
 
             await tx.loanRequest.update({
                 where: { refNo },
-                data: { requestStatus: "REJECTED" }
+                data: { requestStatus: RequestStatus.REJECTED }
             });
 
             await tx.loanItemDetail.updateMany({
                 where: { refNo },
-                data: { loanStatus: "REJECTED" }
+                data: { loanStatus: LoanStatus.REJECTED }
             });
         });
 
@@ -194,11 +196,11 @@ export async function returnItem(loanDetailId: number) {
             });
 
             if (!detail) throw new Error("Loan detail not found");
-            if (["RETURNED", "RETURNED_LATE"].includes(detail.loanStatus)) return; // Already returned
+            if ([LoanStatus.RETURNED, LoanStatus.RETURNED_LATE].includes(detail.loanStatus as LoanStatus)) return; // Already returned
 
             // Check for late return
             const isLate = new Date() > detail.loanRequest.loanDateEnd;
-            const newStatus = isLate ? "RETURNED_LATE" : "RETURNED";
+            const newStatus = isLate ? LoanStatus.RETURNED_LATE : LoanStatus.RETURNED;
 
 
             await tx.loanItemDetail.update({
@@ -218,13 +220,13 @@ export async function returnItem(loanDetailId: number) {
             });
 
             const allReturned = siblings.every(s =>
-                s.loanDetailId === loanDetailId || ["RETURNED", "RETURNED_LATE", "REJECTED"].includes(s.loanStatus)
+                s.loanDetailId === loanDetailId || [LoanStatus.RETURNED, LoanStatus.RETURNED_LATE, LoanStatus.REJECTED].includes(s.loanStatus as LoanStatus)
             );
 
             if (allReturned) {
                 await tx.loanRequest.update({
                     where: { refNo: detail.refNo },
-                    data: { requestStatus: "COMPLETED" }
+                    data: { requestStatus: RequestStatus.COMPLETED }
                 });
             }
         });
@@ -238,18 +240,3 @@ export async function returnItem(loanDetailId: number) {
     }
 }
 
-export async function getLoans() {
-
-    const loans = await prisma.loanRequest.findMany({
-        include: {
-            requester: true,
-            loanDetails: {
-                include: {
-                    item: true
-                }
-            }
-        },
-        orderBy: { refNo: 'desc' }
-    });
-    return loans;
-}

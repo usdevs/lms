@@ -23,16 +23,17 @@ import { Label } from "@/components/ui/label";
 
 // Define a minimal type for what we need from a User
 export type RequesterOption = {
-    reqId: number;
-    reqName: string;
-    reqNusnet: string;
+    userId: number;
+    firstName: string;
+    lastName: string | null;
+    nusnetId: string | null;
 };
 
 interface RequesterSelectProps {
     requesters: RequesterOption[]; // We will pass pre-fetched requesters
     value: number | "new" | undefined;
-    onChange: (val: number | "new" | undefined, newDetails?: { name: string; nusnet: string; tele: string }) => void;
-    onNewDetailsChange?: (details: { name: string; nusnet: string; tele: string }) => void;
+    onChange: (val: number | "new" | undefined, newDetails?: { firstName: string; lastName?: string; nusnet: string; username?: string }) => void;
+    onNewDetailsChange?: (details: { firstName: string; lastName?: string; nusnet: string; username?: string }) => void;
 }
 
 export function RequesterSelect({ requesters, value, onChange, onNewDetailsChange }: RequesterSelectProps) {
@@ -40,7 +41,7 @@ export function RequesterSelect({ requesters, value, onChange, onNewDetailsChang
 
     // New user form state
     const [isCreating, setIsCreating] = React.useState(value === "new");
-    const [newDetails, setNewDetails] = React.useState({ name: "", nusnet: "", tele: "" });
+    const [newDetails, setNewDetails] = React.useState({ firstName: "", lastName: "", nusnet: "", username: "" });
 
     React.useEffect(() => {
         if (value === "new") {
@@ -57,7 +58,10 @@ export function RequesterSelect({ requesters, value, onChange, onNewDetailsChang
     };
 
     const selectedLabel = value && value !== "new"
-        ? requesters.find((r) => r.reqId === value)?.reqName
+        ? (() => {
+            const requester = requesters.find((r) => r.userId === value);
+            return requester ? `${requester.firstName}${requester.lastName ? ` ${requester.lastName}` : ''}` : "Select requester...";
+          })()
         : "Select requester...";
 
     if (isCreating) {
@@ -67,9 +71,15 @@ export function RequesterSelect({ requesters, value, onChange, onNewDetailsChang
                     <h4 className="font-semibold text-sm">New Requester</h4>
                     <Button variant="ghost" size="sm" onClick={() => onChange(undefined)}>Cancel</Button>
                 </div>
-                <div className="grid gap-2">
-                    <Label>Name</Label>
-                    <Input value={newDetails.name} onChange={(e) => handleNewChange("name", e.target.value)} placeholder="John Doe" />
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <Label>First Name</Label>
+                        <Input value={newDetails.firstName} onChange={(e) => handleNewChange("firstName", e.target.value)} placeholder="John" />
+                    </div>
+                    <div>
+                        <Label>Last Name (Optional)</Label>
+                        <Input value={newDetails.lastName} onChange={(e) => handleNewChange("lastName", e.target.value)} placeholder="Doe" />
+                    </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -77,8 +87,8 @@ export function RequesterSelect({ requesters, value, onChange, onNewDetailsChang
                         <Input value={newDetails.nusnet} onChange={(e) => handleNewChange("nusnet", e.target.value)} placeholder="E0123456" />
                     </div>
                     <div>
-                        <Label>Telehandle (Optional)</Label>
-                        <Input value={newDetails.tele} onChange={(e) => handleNewChange("tele", e.target.value)} placeholder="@jhndoe" />
+                        <Label>Username (Optional)</Label>
+                        <Input value={newDetails.username} onChange={(e) => handleNewChange("username", e.target.value)} placeholder="@jhndoe" />
                     </div>
                 </div>
             </div>
@@ -104,24 +114,28 @@ export function RequesterSelect({ requesters, value, onChange, onNewDetailsChang
                     <CommandList>
                         <CommandEmpty>No requester found.</CommandEmpty>
                         <CommandGroup>
-                            {requesters.map((req) => (
-                                <CommandItem
-                                    key={req.reqId}
-                                    value={req.reqName + " " + req.reqNusnet}
-                                    onSelect={() => {
-                                        onChange(req.reqId);
-                                        setOpen(false);
-                                    }}
-                                >
-                                    <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            value === req.reqId ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {req.reqName} ({req.reqNusnet})
-                                </CommandItem>
-                            ))}
+                            {requesters.map((req) => {
+                                const fullName = `${req.firstName}${req.lastName ? ` ${req.lastName}` : ''}`;
+                                const displayName = req.nusnetId ? `${fullName} (${req.nusnetId})` : fullName;
+                                return (
+                                    <CommandItem
+                                        key={req.userId}
+                                        value={fullName + " " + (req.nusnetId || "")}
+                                        onSelect={() => {
+                                            onChange(req.userId);
+                                            setOpen(false);
+                                        }}
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                value === req.userId ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        {displayName}
+                                    </CommandItem>
+                                );
+                            })}
                         </CommandGroup>
                         <CommandSeparator />
                         <CommandGroup>

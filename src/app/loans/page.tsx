@@ -1,59 +1,17 @@
 import React from "react";
-import prisma from "@/lib/prisma";
-import { getLoans } from "@/lib/actions/loan";
+import { getLoans } from "@/lib/utils/server/loans";
 import { LoansTable } from "@/components/loans/LoansTable";
 import { NewLoanModal } from "@/components/loans/NewLoanModal";
 import { DashboardNav } from "@/components/DashboardNav";
+import { getRequesters } from "@/lib/utils/server/users";
+import { getItems } from "@/lib/utils/server/item";
 
 
 export default async function LoanDashboardPage() {
 
-
   const loans = await getLoans();
-
-
-  const requesters = await prisma.requester.findMany({
-    select: { reqId: true, reqName: true, reqNusnet: true },
-    orderBy: { reqName: 'asc' }
-  });
-
-
-  const items = await prisma.item.findMany({
-    select: { itemId: true, itemDesc: true, itemQty: true },
-    orderBy: { itemDesc: 'asc' }
-  });
-
-  // Calculate inventory stats
-
-  const pendingCounts = await prisma.loanItemDetail.groupBy({
-    by: ['itemId'],
-    where: { loanStatus: 'PENDING' },
-    _sum: { loanQty: true }
-  });
-
-  const onLoanCounts = await prisma.loanItemDetail.groupBy({
-    by: ['itemId'],
-    where: { loanStatus: 'ON_LOAN' },
-    _sum: { loanQty: true }
-  });
-
-
-  const pendingMap = new Map(pendingCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
-  const onLoanMap = new Map(onLoanCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
-
-  const enrichedItems = items.map(item => {
-    const onLoan = onLoanMap.get(item.itemId) || 0;
-    const pending = pendingMap.get(item.itemId) || 0;
-
-    const totalQty = item.itemQty + onLoan;
-    const netQty = Math.max(0, item.itemQty - pending);
-
-    return {
-      ...item,
-      totalQty,
-      netQty
-    };
-  });
+  const requesters = await getRequesters();
+  const items = await getItems();
 
   return (
     <div className="min-h-screen w-full bg-[#0C2C47] p-8">
@@ -66,7 +24,7 @@ export default async function LoanDashboardPage() {
 
         <NewLoanModal
           requesters={requesters}
-          items={enrichedItems}
+          items={items}
         />
       </div>
 

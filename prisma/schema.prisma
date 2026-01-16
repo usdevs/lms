@@ -108,9 +108,8 @@ model LoanRequest {
   loanDateStart DateTime @map("loan_date_start")
   loanDateEnd   DateTime @map("loan_date_end")
 
-  // Relations to User (Migrated)
-  reqId    Int  @map("req_id") // Was newReqId
-  loggieId Int? @map("loggie_id") // Was newLoggieId
+  reqId    Int  @map("req_id")
+  loggieId Int? @map("loggie_id")
 
   organisation  String?
   eventDetails  String? @map("event_details")

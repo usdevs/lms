@@ -126,9 +126,7 @@ export function NewLoanModal({ requesters, items }: NewLoanModalProps) {
                                                 onChange={(val, details) => {
                                                     if (val === "new") {
                                                         field.onChange(undefined);
-                                                        // Set some dummy values or let the user type, but the component handles typing
-                                                        // Actually, we need to sync the "details" back to the form
-                                                        form.setValue("newRequester", { name: "", nusnet: "", telehandle: "" }); // Init
+                                                        form.setValue("newRequester", { firstName: "", lastName: "", nusnet: "", username: "" }); // Init
                                                     } else {
                                                         field.onChange(val);
                                                         form.setValue("newRequester", undefined);
@@ -136,9 +134,10 @@ export function NewLoanModal({ requesters, items }: NewLoanModalProps) {
                                                 }}
                                                 onNewDetailsChange={(d) => {
                                                     form.setValue("newRequester", {
-                                                        name: d.name,
+                                                        firstName: d.firstName,
+                                                        lastName: d.lastName,
                                                         nusnet: d.nusnet,
-                                                        telehandle: d.tele,
+                                                        username: d.username,
                                                     });
                                                 }}
                                             />
