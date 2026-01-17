@@ -28,8 +28,9 @@ import { Input } from "@/components/ui/input";
 
 import { CreateLoanSchema } from "@/lib/schema/loan";
 import { createLoan } from "@/lib/actions/loan";
-import { RequesterSelect, RequesterOption } from "./RequesterSelect";
+import { RequesterSelector, RequesterOption, RequesterSelectorValue } from "./RequesterSelector";
 import { ItemSelector, ItemOption } from "./ItemSelector";
+import { NewUserDetails } from "@/lib/types/user";
 
 interface NewLoanModalProps {
     requesters: RequesterOption[];
@@ -93,6 +94,31 @@ export function NewLoanModal({ requesters, items }: NewLoanModalProps) {
         form.setValue("items", current.filter((_, i) => i !== index));
     };
 
+    // Requester select handlers
+    const handleRequesterChange = (val: RequesterSelectorValue, details?: NewUserDetails) => {
+        if (val === "new") {
+            form.setValue("requesterId", undefined);
+            form.setValue("newRequester", { 
+                firstName: "", 
+                lastName: "", 
+                nusnet: "", 
+                telegramHandle: "" 
+            });
+        } else {
+            form.setValue("requesterId", val);
+            form.setValue("newRequester", undefined);
+        }
+    };
+
+    const handleNewRequesterDetailsChange = (details: NewUserDetails) => {
+        form.setValue("newRequester", {
+            firstName: details.firstName,
+            lastName: details.lastName,
+            nusnet: details.nusnet,
+            telegramHandle: details.telegramHandle,
+            ...(details.role && { role: details.role }),
+        });
+    };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -120,26 +146,11 @@ export function NewLoanModal({ requesters, items }: NewLoanModalProps) {
                                     <FormItem>
                                         <FormLabel>Select Requester</FormLabel>
                                         <FormControl>
-                                            <RequesterSelect
+                                            <RequesterSelector
                                                 requesters={requesters}
                                                 value={field.value || (form.watch("newRequester") ? "new" : undefined)}
-                                                onChange={(val, details) => {
-                                                    if (val === "new") {
-                                                        field.onChange(undefined);
-                                                        form.setValue("newRequester", { firstName: "", lastName: "", nusnet: "", username: "" }); // Init
-                                                    } else {
-                                                        field.onChange(val);
-                                                        form.setValue("newRequester", undefined);
-                                                    }
-                                                }}
-                                                onNewDetailsChange={(d) => {
-                                                    form.setValue("newRequester", {
-                                                        firstName: d.firstName,
-                                                        lastName: d.lastName,
-                                                        nusnet: d.nusnet,
-                                                        username: d.username,
-                                                    });
-                                                }}
+                                                onChange={handleRequesterChange}
+                                                onNewDetailsChange={handleNewRequesterDetailsChange}
                                             />
                                         </FormControl>
                                         <FormMessage />

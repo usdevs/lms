@@ -23,16 +23,15 @@ enum IHType {
 }
 
 model User {
-  userId     Int      @id @default(autoincrement()) @map("user_id")
-  telegramId BigInt   @unique @map("telegram_id")
-  username   String?  @map("username")
-  firstName  String   @map("first_name")
-  lastName   String?  @map("last_name")
-  photoUrl   String?  @map("photo_url")
-  role       UserRole @default(REQUESTER)
-  nusnetId   String?  @unique @map("nusnet_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  userId        Int      @id @default(autoincrement()) @map("user_id")
+  telegramHandle String   @unique @map("telegram_handle")
+  firstName     String   @map("first_name")
+  lastName      String?  @map("last_name")
+  photoUrl      String?  @map("photo_url")
+  role          UserRole @default(REQUESTER)
+  nusnetId      String?  @unique @map("nusnet_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
   ihMemberships IHMember[] // IHs this user is a member of

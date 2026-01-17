@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateLoanSchema } from "@/lib/schema/loan";
 import { CreateLoanResult, RequestStatus, LoanStatus } from "../types/loans";
@@ -33,24 +34,32 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
             let finalReqId = requesterId;
 
             if (!finalReqId && newRequester) {
-                // Check if user with this NUSNET ID already exists
-                const existing = await tx.user.findUnique({ where: { nusnetId: newRequester.nusnet } });
-                if (existing) {
-                    throw new Error(`User with NUSNET ${newRequester.nusnet} already exists.`);
+                // Normalize telegram handle: remove @ if present and convert to lowercase
+                const normalizedHandle = newRequester.telegramHandle.startsWith("@") 
+                    ? newRequester.telegramHandle.slice(1).toLowerCase()
+                    : newRequester.telegramHandle.toLowerCase();
+
+                // Check if user with this telegram handle already exists
+                const existingByTelegram = await tx.user.findUnique({ where: { telegramHandle: normalizedHandle } });
+                if (existingByTelegram) {
+                    throw new Error(`User with Telegram handle @${normalizedHandle} already exists.`);
                 }
 
-                // Generate placeholder telegramId if not provided
-                // Use timestamp-based value to ensure uniqueness
-                const telegramId = newRequester.telegramId || BigInt(Date.now() * 1000 + Math.floor(Math.random() * 1000));
+                // Check if user with this NUSNET ID already exists (if provided)
+                if (newRequester.nusnet) {
+                    const existingByNusnet = await tx.user.findUnique({ where: { nusnetId: newRequester.nusnet } });
+                    if (existingByNusnet) {
+                        throw new Error(`User with NUSNET ${newRequester.nusnet} already exists.`);
+                    }
+                }
 
                 const created = await tx.user.create({
                     data: {
                         firstName: newRequester.firstName,
                         lastName: newRequester.lastName || null,
-                        nusnetId: newRequester.nusnet,
-                        username: newRequester.username || null,
-                        telegramId: telegramId,
-                        role: "REQUESTER", // Default role for new requesters
+                        nusnetId: newRequester.nusnet || null,
+                        telegramHandle: normalizedHandle,
+                        role: newRequester.role || UserRole.REQUESTER, // Default to REQUESTER if not provided
                     }
                 });
                 finalReqId = created.userId;

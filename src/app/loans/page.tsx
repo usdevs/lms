@@ -3,14 +3,14 @@ import { getLoans } from "@/lib/utils/server/loans";
 import { LoansTable } from "@/components/loans/LoansTable";
 import { NewLoanModal } from "@/components/loans/NewLoanModal";
 import { DashboardNav } from "@/components/DashboardNav";
-import { getRequesters } from "@/lib/utils/server/users";
+import { getUsers } from "@/lib/utils/server/users";
 import { getItems } from "@/lib/utils/server/item";
 
 
 export default async function LoanDashboardPage() {
 
   const loans = await getLoans();
-  const requesters = await getRequesters();
+  const requesters = await getUsers();
   const items = await getItems();
 
   return (

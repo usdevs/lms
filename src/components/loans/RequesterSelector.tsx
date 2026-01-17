@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NewUserDetails } from "@/lib/types/user";
 
 // Define a minimal type for what we need from a User
 export type RequesterOption = {
@@ -29,19 +30,22 @@ export type RequesterOption = {
     nusnetId: string | null;
 };
 
-interface RequesterSelectProps {
-    requesters: RequesterOption[]; // We will pass pre-fetched requesters
-    value: number | "new" | undefined;
-    onChange: (val: number | "new" | undefined, newDetails?: { firstName: string; lastName?: string; nusnet: string; username?: string }) => void;
-    onNewDetailsChange?: (details: { firstName: string; lastName?: string; nusnet: string; username?: string }) => void;
+// Type for requester select value
+export type RequesterSelectorValue = number | "new" | undefined;
+
+interface RequesterSelectorProps {
+    requesters: RequesterOption[];
+    value: RequesterSelectorValue;
+    onChange: (val: RequesterSelectorValue, newDetails?: NewUserDetails) => void;
+    onNewDetailsChange?: (details: NewUserDetails) => void;
 }
 
-export function RequesterSelect({ requesters, value, onChange, onNewDetailsChange }: RequesterSelectProps) {
+export function RequesterSelector({ requesters, value, onChange, onNewDetailsChange }: RequesterSelectorProps) {
     const [open, setOpen] = React.useState(false);
 
     // New user form state
     const [isCreating, setIsCreating] = React.useState(value === "new");
-    const [newDetails, setNewDetails] = React.useState({ firstName: "", lastName: "", nusnet: "", username: "" });
+    const [newDetails, setNewDetails] = React.useState({ firstName: "", lastName: "", nusnet: "", telegramHandle: "" });
 
     React.useEffect(() => {
         if (value === "new") {
@@ -73,8 +77,8 @@ export function RequesterSelect({ requesters, value, onChange, onNewDetailsChang
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <Label>First Name</Label>
-                        <Input value={newDetails.firstName} onChange={(e) => handleNewChange("firstName", e.target.value)} placeholder="John" />
+                        <Label>First Name *</Label>
+                        <Input value={newDetails.firstName} onChange={(e) => handleNewChange("firstName", e.target.value)} placeholder="John" required />
                     </div>
                     <div>
                         <Label>Last Name (Optional)</Label>
@@ -83,12 +87,18 @@ export function RequesterSelect({ requesters, value, onChange, onNewDetailsChang
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <Label>NUSNET ID</Label>
-                        <Input value={newDetails.nusnet} onChange={(e) => handleNewChange("nusnet", e.target.value)} placeholder="E0123456" />
+                        <Label>Telegram Handle *</Label>
+                        <Input 
+                            type="text"
+                            value={newDetails.telegramHandle} 
+                            onChange={(e) => handleNewChange("telegramHandle", e.target.value)} 
+                            placeholder="@username or username" 
+                            required
+                        />
                     </div>
                     <div>
-                        <Label>Username (Optional)</Label>
-                        <Input value={newDetails.username} onChange={(e) => handleNewChange("username", e.target.value)} placeholder="@jhndoe" />
+                        <Label>NUSNET ID (Optional)</Label>
+                        <Input value={newDetails.nusnet} onChange={(e) => handleNewChange("nusnet", e.target.value)} placeholder="E0123456" />
                     </div>
                 </div>
             </div>

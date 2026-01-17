@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -28,40 +28,40 @@ async function main() {
   
   // Admin
   const admin = await prisma.user.create({
-    data: { telegramId: BigInt(111111111), username: 'admin', firstName: 'Admin', role: 'ADMIN', nusnetId: 'e0000000' }
+    data: { telegramHandle: 'admin', firstName: 'Admin', role: UserRole.ADMIN, nusnetId: 'e0000000' }
   });
 
   // Logs
   const logs1 = await prisma.user.create({
-    data: { telegramId: BigInt(222222221), username: 'miket', firstName: 'Mike', role: 'LOGS', nusnetId: 'e4567890' }
+    data: { telegramHandle: 'miket', firstName: 'Mike', role: UserRole.LOGS, nusnetId: 'e4567890' }
   });
   const logs2 = await prisma.user.create({
-    data: { telegramId: BigInt(222222222), username: 'sarahc', firstName: 'Sarah', role: 'LOGS', nusnetId: 'e5678901' }
+    data: { telegramHandle: 'sarahc', firstName: 'Sarah', role: UserRole.LOGS, nusnetId: 'e5678901' }
   });
 
   // IH Users
   const ihUser1 = await prisma.user.create({
-    data: { telegramId: BigInt(333333331), username: 'johndoe', firstName: 'John', role: 'IH', nusnetId: 'e1111111' }
+    data: { telegramHandle: 'johndoe', firstName: 'John', role: UserRole.IH, nusnetId: 'e1111111' }
   });
   const ihUser2 = await prisma.user.create({
-    data: { telegramId: BigInt(333333332), username: 'janesmith', firstName: 'Jane', role: 'IH', nusnetId: 'e2222222' }
+    data: { telegramHandle: 'janesmith', firstName: 'Jane', role: UserRole.IH, nusnetId: 'e2222222' }
   });
   const ihUser3 = await prisma.user.create({
-    data: { telegramId: BigInt(333333333), username: 'bobjohnson', firstName: 'Bob', role: 'IH', nusnetId: 'e3333333' }
+    data: { telegramHandle: 'bobjohnson', firstName: 'Bob', role: UserRole.IH, nusnetId: 'e3333333' }
   });
   const ihUser4 = await prisma.user.create({
-    data: { telegramId: BigInt(333333334), username: 'emilydavis', firstName: 'Emily', role: 'IH', nusnetId: 'e4444444' }
+    data: { telegramHandle: 'emilydavis', firstName: 'Emily', role: UserRole.IH, nusnetId: 'e4444444' }
   });
 
   // Requesters
   const req1 = await prisma.user.create({
-    data: { telegramId: BigInt(444444441), username: 'alicew', firstName: 'Alice', role: 'REQUESTER', nusnetId: 'e1234567' }
+    data: { telegramHandle: 'alicew', firstName: 'Alice', role: UserRole.REQUESTER, nusnetId: 'e1234567' }
   });
   const req2 = await prisma.user.create({
-    data: { telegramId: BigInt(444444442), username: 'charlieb', firstName: 'Charlie', role: 'REQUESTER', nusnetId: 'e2345678' }
+    data: { telegramHandle: 'charlieb', firstName: 'Charlie', role: UserRole.REQUESTER, nusnetId: 'e2345678' }
   });
   const req3 = await prisma.user.create({
-    data: { telegramId: BigInt(444444443), username: 'dianap', firstName: 'Diana', role: 'REQUESTER', nusnetId: 'e3456789' }
+    data: { telegramHandle: 'dianap', firstName: 'Diana', role: UserRole.REQUESTER, nusnetId: 'e3456789' }
   });
 
   // 3. Create IH
