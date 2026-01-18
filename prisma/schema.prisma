@@ -22,17 +22,31 @@ enum IHType {
   DEPARTMENT // School department
 }
 
+enum LoanRequestStatus {
+  PENDING
+  ONGOING
+  COMPLETED
+  REJECTED
+}
+
+enum LoanItemStatus {
+  PENDING
+  ON_LOAN
+  RETURNED
+  RETURNED_LATE
+  REJECTED
+}
+
 model User {
-  userId     Int      @id @default(autoincrement()) @map("user_id")
-  telegramId BigInt   @unique @map("telegram_id")
-  username   String?  @map("username")
-  firstName  String   @map("first_name")
-  lastName   String?  @map("last_name")
-  photoUrl   String?  @map("photo_url")
-  role       UserRole @default(REQUESTER)
-  nusnetId   String?  @unique @map("nusnet_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  userId        Int      @id @default(autoincrement()) @map("user_id")
+  telegramHandle String   @unique @map("telegram_handle")
+  firstName     String   @map("first_name")
+  lastName      String?  @map("last_name")
+  photoUrl      String?  @map("photo_url")
+  role          UserRole @default(REQUESTER)
+  nusnetId      String?  @unique @map("nusnet_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
   ihMemberships IHMember[] // IHs this user is a member of
@@ -64,7 +78,6 @@ model IH {
   ihType      IHType           @default(INDIVIDUAL) @map("ih_type")
   members     IHMember[] // Multiple POCs via IHMember
   items       Item[]           @relation("ItemIH")
-  loanDetails LoanItemDetail[] @relation("LoanItemDetailIH")
 
   @@map("ih")
 }
@@ -88,34 +101,29 @@ model Item {
 }
 
 model LoanItemDetail {
-  loanDetailId   Int         @id @default(autoincrement()) @map("loan_detail_id")
-  refNo          Int         @map("ref_no")
-  itemId         Int         @map("item_id")
-  loanQty        Int         @map("loan_qty")
-  loanStatus     String      @map("loan_status")
-  itemSlocAtLoan String?     @map("item_sloc_at_loan")
-  itemIhAtLoan   String?     @map("item_ih_at_loan")
-  loanRequest    LoanRequest @relation(fields: [refNo], references: [refNo], onDelete: Cascade, onUpdate: Cascade)
-  item           Item        @relation(fields: [itemId], references: [itemId], onDelete: Cascade, onUpdate: Cascade)
-  slocAtLoan     Sloc?       @relation("LoanItemDetailSloc", fields: [itemSlocAtLoan], references: [slocId], onDelete: Cascade, onUpdate: Cascade)
-  ihAtLoan       IH?         @relation("LoanItemDetailIH", fields: [itemIhAtLoan], references: [ihId], onDelete: Cascade, onUpdate: Cascade)
+  loanDetailId      Int              @id @default(autoincrement()) @map("loan_detail_id")
+  refNo             Int              @map("ref_no")
+  itemId            Int              @map("item_id")
+  loanQty           Int              @map("loan_qty")
+  loanItemStatus    LoanItemStatus   @default(PENDING) @map("loan_status")
+  loanRequest       LoanRequest      @relation(fields: [refNo], references: [refNo], onDelete: Cascade, onUpdate: Cascade)
+  item              Item             @relation(fields: [itemId], references: [itemId], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("loan_item_detail")
 }
 
 model LoanRequest {
-  refNo         Int      @id @default(autoincrement()) @map("ref_no")
-  loanDateStart DateTime @map("loan_date_start")
-  loanDateEnd   DateTime @map("loan_date_end")
+  refNo             Int                @id @default(autoincrement()) @map("ref_no")
+  loanDateStart     DateTime           @map("loan_date_start")
+  loanDateEnd       DateTime           @map("loan_date_end")
 
-  // Relations to User (Migrated)
-  reqId    Int  @map("req_id") // Was newReqId
-  loggieId Int? @map("loggie_id") // Was newLoggieId
+  reqId    Int  @map("req_id")
+  loggieId Int? @map("loggie_id")
 
-  organisation  String?
-  eventDetails  String? @map("event_details")
-  eventLocation String? @map("event_location")
-  requestStatus String  @map("request_status")
+  organisation      String?
+  eventDetails      String?            @map("event_details")
+  eventLocation     String?             @map("event_location")
+  loanRequestStatus LoanRequestStatus   @default(PENDING) @map("request_status")
 
   requester User  @relation("RequesterLoanRequests", fields: [reqId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
   loggie    User? @relation("LoggieLoanRequests", fields: [loggieId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
@@ -129,7 +137,6 @@ model Sloc {
   slocId      String           @id @map("sloc_id")
   slocName    String           @map("sloc_name")
   items       Item[]           @relation("ItemSloc")
-  loanDetails LoanItemDetail[] @relation("LoanItemDetailSloc")
 
   @@map("sloc")
 }

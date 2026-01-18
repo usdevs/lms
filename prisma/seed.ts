@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole, IHType, LoanRequestStatus, LoanItemStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -28,52 +28,52 @@ async function main() {
   
   // Admin
   const admin = await prisma.user.create({
-    data: { telegramId: BigInt(111111111), username: 'admin', firstName: 'Admin', role: 'ADMIN', nusnetId: 'e0000000' }
+    data: { telegramHandle: 'admin', firstName: 'Admin', role: UserRole.ADMIN, nusnetId: 'e0000000' }
   });
 
   // Logs
   const logs1 = await prisma.user.create({
-    data: { telegramId: BigInt(222222221), username: 'miket', firstName: 'Mike', role: 'LOGS', nusnetId: 'e4567890' }
+    data: { telegramHandle: 'miket', firstName: 'Mike', role: UserRole.LOGS, nusnetId: 'e4567890' }
   });
   const logs2 = await prisma.user.create({
-    data: { telegramId: BigInt(222222222), username: 'sarahc', firstName: 'Sarah', role: 'LOGS', nusnetId: 'e5678901' }
+    data: { telegramHandle: 'sarahc', firstName: 'Sarah', role: UserRole.LOGS, nusnetId: 'e5678901' }
   });
 
   // IH Users
   const ihUser1 = await prisma.user.create({
-    data: { telegramId: BigInt(333333331), username: 'johndoe', firstName: 'John', role: 'IH', nusnetId: 'e1111111' }
+    data: { telegramHandle: 'johndoe', firstName: 'John', role: UserRole.IH, nusnetId: 'e1111111' }
   });
   const ihUser2 = await prisma.user.create({
-    data: { telegramId: BigInt(333333332), username: 'janesmith', firstName: 'Jane', role: 'IH', nusnetId: 'e2222222' }
+    data: { telegramHandle: 'janesmith', firstName: 'Jane', role: UserRole.IH, nusnetId: 'e2222222' }
   });
   const ihUser3 = await prisma.user.create({
-    data: { telegramId: BigInt(333333333), username: 'bobjohnson', firstName: 'Bob', role: 'IH', nusnetId: 'e3333333' }
+    data: { telegramHandle: 'bobjohnson', firstName: 'Bob', role: UserRole.IH, nusnetId: 'e3333333' }
   });
   const ihUser4 = await prisma.user.create({
-    data: { telegramId: BigInt(333333334), username: 'emilydavis', firstName: 'Emily', role: 'IH', nusnetId: 'e4444444' }
+    data: { telegramHandle: 'emilydavis', firstName: 'Emily', role: UserRole.IH, nusnetId: 'e4444444' }
   });
 
   // Requesters
   const req1 = await prisma.user.create({
-    data: { telegramId: BigInt(444444441), username: 'alicew', firstName: 'Alice', role: 'REQUESTER', nusnetId: 'e1234567' }
+    data: { telegramHandle: 'alicew', firstName: 'Alice', role: UserRole.REQUESTER, nusnetId: 'e1234567' }
   });
   const req2 = await prisma.user.create({
-    data: { telegramId: BigInt(444444442), username: 'charlieb', firstName: 'Charlie', role: 'REQUESTER', nusnetId: 'e2345678' }
+    data: { telegramHandle: 'charlieb', firstName: 'Charlie', role: UserRole.REQUESTER, nusnetId: 'e2345678' }
   });
   const req3 = await prisma.user.create({
-    data: { telegramId: BigInt(444444443), username: 'dianap', firstName: 'Diana', role: 'REQUESTER', nusnetId: 'e3456789' }
+    data: { telegramHandle: 'dianap', firstName: 'Diana', role: UserRole.REQUESTER, nusnetId: 'e3456789' }
   });
 
   // 3. Create IH
   console.log('Creating IHs...');
   const ih1 = await prisma.iH.create({
-    data: { ihId: 'IH001', ihName: 'John Doe', ihType: 'INDIVIDUAL' }
+    data: { ihId: 'IH001', ihName: 'John Doe', ihType: IHType.INDIVIDUAL }
   });
   const ih2 = await prisma.iH.create({
-    data: { ihId: 'IH002', ihName: 'Jane Smith', ihType: 'INDIVIDUAL' }
+    data: { ihId: 'IH002', ihName: 'Jane Smith', ihType: IHType.INDIVIDUAL }
   });
   const ih3 = await prisma.iH.create({
-    data: { ihId: 'IH003', ihName: 'NUSC Club Logistics', ihType: 'GROUP' }
+    data: { ihId: 'IH003', ihName: 'NUSC Club Logistics', ihType: IHType.GROUP }
   });
 
   // 4. Create IH Members
@@ -114,11 +114,10 @@ async function main() {
     data: {
       loanDateStart: new Date('2024-12-20'),
       loanDateEnd: new Date('2024-12-22'),
-      // Assuming FINAL schema has reqId pointing to User
       reqId: req1.userId,
       loggieId: logs1.userId,
       organisation: 'Computing Club',
-      requestStatus: 'approved'
+      loanRequestStatus: LoanRequestStatus.PENDING // Pending approval (no stock deduction)
     }
   });
 
@@ -129,7 +128,7 @@ async function main() {
       reqId: req2.userId,
       loggieId: logs2.userId,
       organisation: 'Engin Soc',
-      requestStatus: 'pending'
+      loanRequestStatus: LoanRequestStatus.PENDING
     }
   });
 
@@ -139,16 +138,23 @@ async function main() {
       loanDateEnd: new Date('2025-01-07'),
       reqId: req3.userId,
       organisation: 'NUSSU',
-      requestStatus: 'approved'
+      loanRequestStatus: LoanRequestStatus.REJECTED // Rejected loan (no stock deduction)
     }
   });
 
   // 7. Loan Details
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanStatus: 'loaned', itemSlocAtLoan: sloc1.slocId, itemIhAtLoan: ih1.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanStatus: 'loaned', itemSlocAtLoan: sloc1.slocId, itemIhAtLoan: ih1.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item3.itemId, loanQty: 5, loanStatus: 'pending', itemSlocAtLoan: sloc2.slocId, itemIhAtLoan: ih2.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item4.itemId, loanQty: 1, loanStatus: 'pending', itemSlocAtLoan: sloc3.slocId, itemIhAtLoan: ih3.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanStatus: 'approved', itemSlocAtLoan: sloc2.slocId, itemIhAtLoan: ih2.ihId } });
+  // All loans are PENDING or REJECTED - no stock deduction
+  
+  // lr1: Pending loan (no stock deduction)
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanItemStatus: LoanItemStatus.PENDING } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanItemStatus: LoanItemStatus.PENDING } });
+
+  // lr2: Pending loan (no stock deduction)
+  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item3.itemId, loanQty: 5, loanItemStatus: LoanItemStatus.PENDING } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item4.itemId, loanQty: 1, loanItemStatus: LoanItemStatus.PENDING } });
+
+  // lr3: Rejected loan (no stock deduction)
+  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanItemStatus: LoanItemStatus.REJECTED } });
 
   console.log('Seed completed!');
 }
