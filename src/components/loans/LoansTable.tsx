@@ -227,7 +227,6 @@ export function LoansTable({ data }: LoansTableProps) {
                   <TableRow>
                     <TableHead>Item</TableHead>
                     <TableHead>Qty</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -241,9 +240,6 @@ export function LoansTable({ data }: LoansTableProps) {
                         </div>
                       </TableCell>
                       <TableCell>{detail.loanQty}</TableCell>
-                      <TableCell>
-                        <ItemStatusBadge status={detail.loanStatus} />
-                      </TableCell>
                       <TableCell className="text-right">
                         {selectedLoan.requestStatus === LoanRequestStatus.ONGOING && detail.loanStatus === LoanItemStatus.ON_LOAN && (
                           <Button
@@ -283,11 +279,3 @@ function StatusBadge({ status }: { status: string }) {
   }
 }
 
-function ItemStatusBadge({ status }: { status: string }) {
-  if (status === LoanItemStatus.PENDING) return <span className="text-yellow-600 text-xs font-medium">Pending</span>;
-  if (status === LoanItemStatus.ON_LOAN) return <div className="text-blue-600 flex items-center gap-1 text-xs font-medium"><AlertCircle className="h-3 w-3" /> On Loan</div>;
-  if (status === LoanItemStatus.RETURNED) return <div className="text-green-600 flex items-center gap-1 text-xs font-medium"><CheckCircle className="h-3 w-3" /> Returned</div>;
-  if (status === LoanItemStatus.RETURNED_LATE) return <div className="text-orange-600 flex items-center gap-1 text-xs font-bold"><AlertCircle className="h-3 w-3" /> Returned Late</div>;
-  if (status === LoanItemStatus.REJECTED) return <span className="text-destructive text-xs">Rejected</span>;
-  return <span className="text-xs">{status}</span>;
-}
