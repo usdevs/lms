@@ -145,19 +145,19 @@ async function main() {
 
   // 7. Loan Details
   // lr1: Ongoing loan with items on loan (stock must be deducted)
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanStatus: LoanItemStatus.ON_LOAN, itemSlocAtLoan: sloc1.slocId, itemIhAtLoan: ih1.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanStatus: LoanItemStatus.ON_LOAN, itemSlocAtLoan: sloc1.slocId, itemIhAtLoan: ih1.ihId } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanStatus: LoanItemStatus.ON_LOAN } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanStatus: LoanItemStatus.ON_LOAN } });
   
   // Deduct stock for lr1 items
   await prisma.item.update({ where: { itemId: item1.itemId }, data: { itemQty: { decrement: 2 } } });
   await prisma.item.update({ where: { itemId: item2.itemId }, data: { itemQty: { decrement: 1 } } });
 
   // lr2: Pending loan (no stock deduction)
-  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item3.itemId, loanQty: 5, loanStatus: LoanItemStatus.PENDING, itemSlocAtLoan: sloc2.slocId, itemIhAtLoan: ih2.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item4.itemId, loanQty: 1, loanStatus: LoanItemStatus.PENDING, itemSlocAtLoan: sloc3.slocId, itemIhAtLoan: ih3.ihId } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item3.itemId, loanQty: 5, loanStatus: LoanItemStatus.PENDING } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item4.itemId, loanQty: 1, loanStatus: LoanItemStatus.PENDING } });
 
   // lr3: Ongoing loan with item on loan (stock must be deducted)
-  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanStatus: LoanItemStatus.ON_LOAN, itemSlocAtLoan: sloc2.slocId, itemIhAtLoan: ih2.ihId } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanStatus: LoanItemStatus.ON_LOAN } });
   
   // Deduct stock for lr3 item
   const updatedItem5 = await prisma.item.update({ 

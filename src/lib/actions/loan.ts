@@ -111,8 +111,6 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                         itemId: loanItem.itemId,
                         loanQty: loanItem.loanQty,
                         loanStatus: LoanItemStatus.PENDING,
-                        itemSlocAtLoan: dbItem.itemSloc,
-                        itemIhAtLoan: dbItem.itemIh,
                     }
                 });
             }

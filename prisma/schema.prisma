@@ -63,7 +63,6 @@ model IH {
   ihType      IHType           @default(INDIVIDUAL) @map("ih_type")
   members     IHMember[] // Multiple POCs via IHMember
   items       Item[]           @relation("ItemIH")
-  loanDetails LoanItemDetail[] @relation("LoanItemDetailIH")
 
   @@map("ih")
 }
@@ -92,12 +91,8 @@ model LoanItemDetail {
   itemId         Int         @map("item_id")
   loanQty        Int         @map("loan_qty")
   loanStatus     String      @map("loan_status")
-  itemSlocAtLoan String?     @map("item_sloc_at_loan")
-  itemIhAtLoan   String?     @map("item_ih_at_loan")
   loanRequest    LoanRequest @relation(fields: [refNo], references: [refNo], onDelete: Cascade, onUpdate: Cascade)
   item           Item        @relation(fields: [itemId], references: [itemId], onDelete: Cascade, onUpdate: Cascade)
-  slocAtLoan     Sloc?       @relation("LoanItemDetailSloc", fields: [itemSlocAtLoan], references: [slocId], onDelete: Cascade, onUpdate: Cascade)
-  ihAtLoan       IH?         @relation("LoanItemDetailIH", fields: [itemIhAtLoan], references: [ihId], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("loan_item_detail")
 }
@@ -127,7 +122,6 @@ model Sloc {
   slocId      String           @id @map("sloc_id")
   slocName    String           @map("sloc_name")
   items       Item[]           @relation("ItemSloc")
-  loanDetails LoanItemDetail[] @relation("LoanItemDetailSloc")
 
   @@map("sloc")
 }
