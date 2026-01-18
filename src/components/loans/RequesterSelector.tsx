@@ -28,6 +28,7 @@ export type RequesterOption = {
     firstName: string;
     lastName: string | null;
     nusnetId: string | null;
+    telegramHandle: string;
 };
 
 // Type for requester select value
@@ -69,7 +70,9 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
     const selectedLabel = value && value !== "new"
         ? (() => {
             const requester = requesters.find((r) => r.userId === value);
-            return requester ? `${requester.firstName}${requester.lastName ? ` ${requester.lastName}` : ''}` : "Select requester...";
+            if (!requester) return "Select requester...";
+            const fullName = `${requester.firstName}${requester.lastName ? ` ${requester.lastName}` : ''}`;
+            return `${fullName} (@${requester.telegramHandle})`;
           })()
         : "Select requester...";
 
@@ -149,11 +152,11 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                         <CommandGroup>
                             {requesters.map((req) => {
                                 const fullName = `${req.firstName}${req.lastName ? ` ${req.lastName}` : ''}`;
-                                const displayName = req.nusnetId ? `${fullName} (${req.nusnetId})` : fullName;
+                                const displayName = `${fullName} (@${req.telegramHandle})`;
                                 return (
                                     <CommandItem
                                         key={req.userId}
-                                        value={fullName + " " + (req.nusnetId || "")}
+                                        value={`${fullName} ${req.telegramHandle}`}
                                         onSelect={() => {
                                             onChange(req.userId);
                                             setOpen(false);

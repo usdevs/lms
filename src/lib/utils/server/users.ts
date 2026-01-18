@@ -5,6 +5,6 @@ import prisma from "@/lib/prisma";
  */
 export const getUsers = async () =>
     prisma.user.findMany({
-    select: { userId: true, firstName: true, lastName: true, nusnetId: true },
+    select: { userId: true, firstName: true, lastName: true, nusnetId: true, telegramHandle: true },
     orderBy: { firstName: 'asc' }
   });

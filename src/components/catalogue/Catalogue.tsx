@@ -272,13 +272,13 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {items.map((item) => (
             <div
               key={item.itemId}
-              className="flex flex-col rounded-lg bg-white overflow-hidden"
+              className="group relative flex flex-col rounded-xl bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             >
-              {/* Image - square aspect ratio container with cover crop */}
+              {/* Image with hover action buttons */}
               <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
                 {item.itemImage ? (
                   <img
@@ -292,6 +292,38 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                     <span className="text-gray-400 text-sm">No Image</span>
                   </div>
                 )}
+                
+                {/* Action buttons - appear on hover */}
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <EditItemModal
+                    slocs={slocs}
+                    ihs={ihs}
+                    mode="edit"
+                    item={{
+                      itemId: item.itemId,
+                      itemDesc: item.itemDesc,
+                      itemQty: item.itemQty,
+                      itemUom: item.itemUom,
+                      itemSloc: item.itemSloc,
+                      itemIh: item.itemIh,
+                      itemRemarks: item.itemRemarks,
+                      itemPurchaseDate: item.itemPurchaseDate,
+                      itemRfpNumber: item.itemRfpNumber,
+                      itemImage: item.itemImage,
+                    }}
+                    trigger={
+                      <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/90 hover:bg-white shadow-sm">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    }
+                    onSuccess={refreshItems}
+                  />
+                  <DeleteItemButton
+                    itemId={Number(item.itemId)}
+                    itemDesc={item.itemDesc}
+                    onDelete={refreshItems}
+                  />
+                </div>
               </div>
 
               {/* Content */}
@@ -300,53 +332,27 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                   {item.itemDesc}
                 </h3>
                 
-                <div className="text-xs text-gray-500 space-y-1 mb-3">
+                <div className="text-xs text-gray-500 space-y-0.5 mb-4">
                   <p className="truncate">{item.sloc.slocName}</p>
-                  <p className="truncate">{item.ih.ihName}</p>
+                  <p className="truncate">
+                    {item.ih.ihName}
+                    {item.ih.members?.[0]?.user?.telegramHandle && (
+                      <span className="text-gray-400"> (@{item.ih.members[0].user.telegramHandle})</span>
+                    )}
+                  </p>
                 </div>
 
-                {/* Quantity row */}
-                <div className="flex items-center gap-4 pt-2 border-t border-gray-100 mt-auto">
-                  <div className="flex-1">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-400 block">Total</span>
-                    <span className="text-lg font-medium text-gray-900">{item.totalQty}</span>
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-[10px] uppercase tracking-wider text-gray-400 block">Available</span>
-                    <span className={cn("text-lg font-bold", item.netQty > 0 ? "text-green-600" : "text-destructive")}>
-                      {item.netQty}
-                    </span>
-                  </div>
-                  <div className="flex gap-1">
-                    <EditItemModal
-                      slocs={slocs}
-                      ihs={ihs}
-                      mode="edit"
-                      item={{
-                        itemId: item.itemId,
-                        itemDesc: item.itemDesc,
-                        itemQty: item.itemQty,
-                        itemUom: item.itemUom,
-                        itemSloc: item.itemSloc,
-                        itemIh: item.itemIh,
-                        itemRemarks: item.itemRemarks,
-                        itemPurchaseDate: item.itemPurchaseDate,
-                        itemRfpNumber: item.itemRfpNumber,
-                        itemImage: item.itemImage,
-                      }}
-                      trigger={
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                      }
-                      onSuccess={refreshItems}
-                    />
-                    <DeleteItemButton
-                      itemId={Number(item.itemId)}
-                      itemDesc={item.itemDesc}
-                      onDelete={refreshItems}
-                    />
-                  </div>
+                {/* Quantity - simplified inline format */}
+                <div className="flex items-baseline gap-1.5 mt-auto">
+                  <span className={cn(
+                    "text-xl font-semibold",
+                    item.netQty > 0 ? "text-green-600" : "text-destructive"
+                  )}>
+                    {item.netQty}
+                  </span>
+                  <span className="text-gray-400 text-sm">/</span>
+                  <span className="text-gray-600 text-sm">{item.totalQty}</span>
+                  <span className="text-gray-400 text-xs ml-1">available</span>
                 </div>
               </div>
             </div>
