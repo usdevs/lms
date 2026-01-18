@@ -1,5 +1,4 @@
-import { PrismaClient, UserRole, IHType } from '@prisma/client';
-import { LoanRequestStatus, LoanItemStatus } from '../src/lib/types/loans';
+import { PrismaClient, UserRole, IHType, LoanRequestStatus, LoanItemStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -118,7 +117,7 @@ async function main() {
       reqId: req1.userId,
       loggieId: logs1.userId,
       organisation: 'Computing Club',
-      requestStatus: LoanRequestStatus.ONGOING // Approved/ongoing loan
+      loanRequestStatus: LoanRequestStatus.ONGOING // Approved/ongoing loan
     }
   });
 
@@ -129,7 +128,7 @@ async function main() {
       reqId: req2.userId,
       loggieId: logs2.userId,
       organisation: 'Engin Soc',
-      requestStatus: LoanRequestStatus.PENDING
+      loanRequestStatus: LoanRequestStatus.PENDING
     }
   });
 
@@ -139,25 +138,25 @@ async function main() {
       loanDateEnd: new Date('2025-01-07'),
       reqId: req3.userId,
       organisation: 'NUSSU',
-      requestStatus: LoanRequestStatus.ONGOING // Approved/ongoing loan
+      loanRequestStatus: LoanRequestStatus.ONGOING // Approved/ongoing loan
     }
   });
 
   // 7. Loan Details
   // lr1: Ongoing loan with items on loan (stock must be deducted)
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanStatus: LoanItemStatus.ON_LOAN } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanStatus: LoanItemStatus.ON_LOAN } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanItemStatus: LoanItemStatus.ON_LOAN } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanItemStatus: LoanItemStatus.ON_LOAN } });
   
   // Deduct stock for lr1 items
   await prisma.item.update({ where: { itemId: item1.itemId }, data: { itemQty: { decrement: 2 } } });
   await prisma.item.update({ where: { itemId: item2.itemId }, data: { itemQty: { decrement: 1 } } });
 
   // lr2: Pending loan (no stock deduction)
-  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item3.itemId, loanQty: 5, loanStatus: LoanItemStatus.PENDING } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item4.itemId, loanQty: 1, loanStatus: LoanItemStatus.PENDING } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item3.itemId, loanQty: 5, loanItemStatus: LoanItemStatus.PENDING } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item4.itemId, loanQty: 1, loanItemStatus: LoanItemStatus.PENDING } });
 
   // lr3: Ongoing loan with item on loan (stock must be deducted)
-  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanStatus: LoanItemStatus.ON_LOAN } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanItemStatus: LoanItemStatus.ON_LOAN } });
   
   // Deduct stock for lr3 item
   const updatedItem5 = await prisma.item.update({ 

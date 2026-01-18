@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { UserRole } from "@prisma/client";
+import { LoanItemStatus, LoanRequestStatus, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateLoanSchema } from "@/lib/schema/loan";
-import { CreateLoanResult, LoanRequestStatus, LoanItemStatus } from "../types/loans";
+import { CreateLoanResult } from "../types/loans";
 
 export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promise<CreateLoanResult> {
     const parseResult = CreateLoanSchema.safeParse(data);
@@ -77,7 +77,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                     organisation: organisation || null,
                     eventDetails: eventDetails || null,
                     eventLocation: eventLocation || null,
-                    requestStatus: LoanRequestStatus.PENDING,
+                    loanRequestStatus: LoanRequestStatus.PENDING,
                 }
             });
 
@@ -90,7 +90,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                 const pendingAgg = await tx.loanItemDetail.aggregate({
                     where: {
                         itemId: loanItem.itemId,
-                        loanStatus: LoanItemStatus.PENDING
+                        loanItemStatus: LoanItemStatus.PENDING
                     },
                     _sum: {
                         loanQty: true
@@ -110,7 +110,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                         refNo: loanRequest.refNo,
                         itemId: loanItem.itemId,
                         loanQty: loanItem.loanQty,
-                        loanStatus: LoanItemStatus.PENDING,
+                        loanItemStatus: LoanItemStatus.PENDING,
                     }
                 });
             }
@@ -134,7 +134,7 @@ export async function approveLoan(refNo: number) {
             });
 
             if (!request) throw new Error("Loan request not found");
-            if (request.requestStatus !== LoanRequestStatus.PENDING) throw new Error("Loan is not pending");
+            if (request.loanRequestStatus !== LoanRequestStatus.PENDING) throw new Error("Loan is not pending");
 
             // Deduct stock for each item
             for (const detail of request.loanDetails) {
@@ -149,13 +149,13 @@ export async function approveLoan(refNo: number) {
 
                 await tx.loanItemDetail.update({
                     where: { loanDetailId: detail.loanDetailId },
-                    data: { loanStatus: LoanItemStatus.ON_LOAN }
+                    data: { loanItemStatus: LoanItemStatus.ON_LOAN }
                 });
             }
 
             await tx.loanRequest.update({
                 where: { refNo },
-                data: { requestStatus: LoanRequestStatus.ONGOING }
+                data: { loanRequestStatus: LoanRequestStatus.ONGOING }
             });
         });
 
@@ -172,17 +172,17 @@ export async function rejectLoan(refNo: number) {
         await prisma.$transaction(async (tx) => {
             const request = await tx.loanRequest.findUnique({ where: { refNo } });
             if (!request) throw new Error("Loan request not found");
-            if (request.requestStatus !== LoanRequestStatus.PENDING) throw new Error("Loan is not pending");
+            if (request.loanRequestStatus !== LoanRequestStatus.PENDING) throw new Error("Loan is not pending");
 
 
             await tx.loanRequest.update({
                 where: { refNo },
-                data: { requestStatus: LoanRequestStatus.REJECTED }
+                data: { loanRequestStatus: LoanRequestStatus.REJECTED }
             });
 
             await tx.loanItemDetail.updateMany({
                 where: { refNo },
-                data: { loanStatus: LoanItemStatus.REJECTED }
+                data: { loanItemStatus: LoanItemStatus.REJECTED }
             });
         });
 
@@ -203,7 +203,7 @@ export async function returnItem(loanDetailId: number) {
             });
 
             if (!detail) throw new Error("Loan detail not found");
-            if ([LoanItemStatus.RETURNED, LoanItemStatus.RETURNED_LATE].includes(detail.loanStatus as LoanItemStatus)) return; // Already returned
+            if (detail.loanItemStatus === LoanItemStatus.RETURNED || detail.loanItemStatus === LoanItemStatus.RETURNED_LATE) return; // Already returned
 
             // Check for late return
             const isLate = new Date() > detail.loanRequest.loanDateEnd;
@@ -212,7 +212,7 @@ export async function returnItem(loanDetailId: number) {
 
             await tx.loanItemDetail.update({
                 where: { loanDetailId },
-                data: { loanStatus: newStatus }
+                data: { loanItemStatus: newStatus }
             });
 
             // Restore stock
@@ -227,13 +227,16 @@ export async function returnItem(loanDetailId: number) {
             });
 
             const allReturned = siblings.every(s =>
-                s.loanDetailId === loanDetailId || [LoanItemStatus.RETURNED, LoanItemStatus.RETURNED_LATE, LoanItemStatus.REJECTED].includes(s.loanStatus as LoanItemStatus)
+                s.loanDetailId === loanDetailId || 
+                s.loanItemStatus === LoanItemStatus.RETURNED || 
+                s.loanItemStatus === LoanItemStatus.RETURNED_LATE || 
+                s.loanItemStatus === LoanItemStatus.REJECTED
             );
 
             if (allReturned) {
                 await tx.loanRequest.update({
                     where: { refNo: detail.refNo },
-                    data: { requestStatus: LoanRequestStatus.COMPLETED }
+                    data: { loanRequestStatus: LoanRequestStatus.COMPLETED }
                 });
             }
         });

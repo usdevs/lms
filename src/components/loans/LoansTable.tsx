@@ -24,7 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { returnItem, approveLoan, rejectLoan } from "@/lib/actions/loan";
-import { LoanWithDetails, LoanRequestStatus, LoanItemStatus } from "@/lib/types/loans";
+import { LoanWithDetails } from "@/lib/types/loans";
+import { LoanItemStatus, LoanRequestStatus } from "@prisma/client";
 
 type FilterStatus = "ALL" | LoanRequestStatus;
 
@@ -47,7 +48,7 @@ export function LoansTable({ data }: LoansTableProps) {
           setSelectedLoan({
             ...selectedLoan,
             loanDetails: selectedLoan.loanDetails.map(d =>
-              d.loanDetailId === detailId ? { ...d, loanStatus: LoanItemStatus.RETURNED } : d
+              d.loanDetailId === detailId ? { ...d, loanItemStatus: LoanItemStatus.RETURNED } : d
             )
           });
         }
@@ -62,7 +63,7 @@ export function LoansTable({ data }: LoansTableProps) {
       const result = await approveLoan(refNo);
       if (result.success) {
         toast.success("Loan approved and stock deducted");
-        setSelectedLoan(prev => prev ? { ...prev, requestStatus: LoanRequestStatus.ONGOING } : null);
+        setSelectedLoan(prev => prev ? { ...prev, loanRequestStatus: LoanRequestStatus.ONGOING } : null);
       } else {
         toast.error("Approval failed: " + result.error);
       }
@@ -75,7 +76,7 @@ export function LoansTable({ data }: LoansTableProps) {
       const result = await rejectLoan(refNo);
       if (result.success) {
         toast.success("Loan rejected");
-        setSelectedLoan(prev => prev ? { ...prev, requestStatus: LoanRequestStatus.REJECTED } : null);
+        setSelectedLoan(prev => prev ? { ...prev, loanRequestStatus: LoanRequestStatus.REJECTED } : null);
       } else {
         toast.error("Rejection failed: " + result.error);
       }
@@ -90,7 +91,7 @@ export function LoansTable({ data }: LoansTableProps) {
       loan.refNo.toString().includes(search);
 
     if (filterStatus === "ALL") return matchesSearch;
-    return matchesSearch && loan.requestStatus === filterStatus;
+    return matchesSearch && loan.loanRequestStatus === filterStatus;
   });
 
   const statusOptions: FilterStatus[] = ["ALL", LoanRequestStatus.PENDING, LoanRequestStatus.ONGOING, LoanRequestStatus.COMPLETED, LoanRequestStatus.REJECTED];
@@ -158,7 +159,7 @@ export function LoansTable({ data }: LoansTableProps) {
                   <TableCell>{format(new Date(loan.loanDateStart), "dd MMM yyyy")}</TableCell>
                   <TableCell>{format(new Date(loan.loanDateEnd), "dd MMM yyyy")}</TableCell>
                   <TableCell>
-                    <StatusBadge status={loan.requestStatus} />
+                    <StatusBadge status={loan.loanRequestStatus} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="icon" variant="ghost" onClick={() => setSelectedLoan(loan)}>
@@ -178,7 +179,7 @@ export function LoansTable({ data }: LoansTableProps) {
           <DialogHeader>
             <div className="flex justify-between items-center pr-8">
               <DialogTitle>Loan Details #{selectedLoan?.refNo}</DialogTitle>
-              {selectedLoan && <StatusBadge status={selectedLoan.requestStatus} />}
+              {selectedLoan && <StatusBadge status={selectedLoan.loanRequestStatus} />}
             </div>
             <DialogDescription>
               Manage items for this loan request.
@@ -200,7 +201,7 @@ export function LoansTable({ data }: LoansTableProps) {
                   {selectedLoan && format(new Date(selectedLoan.loanDateStart), "dd MMM")} - {selectedLoan && format(new Date(selectedLoan.loanDateEnd), "dd MMM yyyy")}
                 </div>
                 {/* Lateness Check */}
-                {selectedLoan && selectedLoan.requestStatus === LoanRequestStatus.ONGOING && new Date() > new Date(selectedLoan.loanDateEnd) && (
+                {selectedLoan && selectedLoan.loanRequestStatus === LoanRequestStatus.ONGOING && new Date() > new Date(selectedLoan.loanDateEnd) && (
                   <div className="text-destructive font-bold text-sm mt-1 flex items-center gap-1">
                     <AlertCircle className="h-4 w-4" /> Overdue
                   </div>
@@ -209,7 +210,7 @@ export function LoansTable({ data }: LoansTableProps) {
             </div>
 
             {/* Approval Actions */}
-            {selectedLoan?.requestStatus === LoanRequestStatus.PENDING && (
+            {selectedLoan?.loanRequestStatus === LoanRequestStatus.PENDING && (
               <div className="flex gap-2 p-4 bg-blue-50/50 border border-blue-100 rounded-md items-center justify-between">
                 <div className="text-sm text-blue-800">
                   This request is <strong>Pending Approval</strong>. Approving will deduct stock.
@@ -241,7 +242,7 @@ export function LoansTable({ data }: LoansTableProps) {
                       </TableCell>
                       <TableCell>{detail.loanQty}</TableCell>
                       <TableCell className="text-right">
-                        {selectedLoan.requestStatus === LoanRequestStatus.ONGOING && detail.loanStatus === LoanItemStatus.ON_LOAN && (
+                        {selectedLoan.loanRequestStatus === LoanRequestStatus.ONGOING && detail.loanItemStatus === LoanItemStatus.ON_LOAN && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -264,7 +265,7 @@ export function LoansTable({ data }: LoansTableProps) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: LoanRequestStatus }) {
   switch (status) {
     case LoanRequestStatus.PENDING:
       return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100"><Clock className="w-3 h-3 mr-1" /> Pending</Badge>;

@@ -12,7 +12,7 @@ import {
   EditItemServerSchema,
   NewItemServerSchema,
 } from "@/lib/schema/item";
-import { Prisma } from "@prisma/client";
+import { Prisma, LoanItemStatus } from "@prisma/client";
 import { ItemPaginationParams, PaginatedItemsResponse } from "../types/items";
 
 export async function createItem(formData: FormData) {
@@ -275,7 +275,7 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
             by: ['itemId'],
             where: {
               itemId: { in: itemIds },
-              loanStatus: 'PENDING',
+              loanItemStatus: LoanItemStatus.PENDING,
             },
             _sum: { loanQty: true },
           })
@@ -285,7 +285,7 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
             by: ['itemId'],
             where: {
               itemId: { in: itemIds },
-              loanStatus: 'ON_LOAN',
+              loanItemStatus: LoanItemStatus.ON_LOAN,
             },
             _sum: { loanQty: true },
           })

@@ -22,6 +22,21 @@ enum IHType {
   DEPARTMENT // School department
 }
 
+enum LoanRequestStatus {
+  PENDING
+  ONGOING
+  COMPLETED
+  REJECTED
+}
+
+enum LoanItemStatus {
+  PENDING
+  ON_LOAN
+  RETURNED
+  RETURNED_LATE
+  REJECTED
+}
+
 model User {
   userId        Int      @id @default(autoincrement()) @map("user_id")
   telegramHandle String   @unique @map("telegram_handle")
@@ -86,29 +101,29 @@ model Item {
 }
 
 model LoanItemDetail {
-  loanDetailId   Int         @id @default(autoincrement()) @map("loan_detail_id")
-  refNo          Int         @map("ref_no")
-  itemId         Int         @map("item_id")
-  loanQty        Int         @map("loan_qty")
-  loanStatus     String      @map("loan_status")
-  loanRequest    LoanRequest @relation(fields: [refNo], references: [refNo], onDelete: Cascade, onUpdate: Cascade)
-  item           Item        @relation(fields: [itemId], references: [itemId], onDelete: Cascade, onUpdate: Cascade)
+  loanDetailId      Int              @id @default(autoincrement()) @map("loan_detail_id")
+  refNo             Int              @map("ref_no")
+  itemId            Int              @map("item_id")
+  loanQty           Int              @map("loan_qty")
+  loanItemStatus    LoanItemStatus   @default(PENDING) @map("loan_status")
+  loanRequest       LoanRequest      @relation(fields: [refNo], references: [refNo], onDelete: Cascade, onUpdate: Cascade)
+  item              Item             @relation(fields: [itemId], references: [itemId], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("loan_item_detail")
 }
 
 model LoanRequest {
-  refNo         Int      @id @default(autoincrement()) @map("ref_no")
-  loanDateStart DateTime @map("loan_date_start")
-  loanDateEnd   DateTime @map("loan_date_end")
+  refNo             Int                @id @default(autoincrement()) @map("ref_no")
+  loanDateStart     DateTime           @map("loan_date_start")
+  loanDateEnd       DateTime           @map("loan_date_end")
 
   reqId    Int  @map("req_id")
   loggieId Int? @map("loggie_id")
 
-  organisation  String?
-  eventDetails  String? @map("event_details")
-  eventLocation String? @map("event_location")
-  requestStatus String  @map("request_status")
+  organisation      String?
+  eventDetails      String?            @map("event_details")
+  eventLocation     String?             @map("event_location")
+  loanRequestStatus LoanRequestStatus   @default(PENDING) @map("request_status")
 
   requester User  @relation("RequesterLoanRequests", fields: [reqId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
   loggie    User? @relation("LoggieLoanRequests", fields: [loggieId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
