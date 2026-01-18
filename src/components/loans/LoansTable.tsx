@@ -98,28 +98,30 @@ export function LoansTable({ data }: LoansTableProps) {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex gap-2">
-          {statusOptions.map(status => (
-            <Button
-              key={status}
-              variant={filterStatus === status ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilterStatus(status)}
-              className="capitalize"
-            >
-              {status.toLowerCase()}
-            </Button>
-          ))}
-        </div>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+        <div className="relative w-full max-w-[300px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             placeholder="Search loans..."
-            className="pl-8 w-[250px]"
+            className="pl-10 w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {statusOptions.map(status => (
+            <button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              className={`h-9 rounded-md px-4 transition-colors capitalize ${
+                filterStatus === status 
+                  ? "bg-[#0C2C47] text-white" 
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              {status.toLowerCase()}
+            </button>
+          ))}
         </div>
       </div>
 

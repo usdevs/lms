@@ -38,9 +38,14 @@ interface RequesterSelectorProps {
     value: RequesterSelectorValue;
     onChange: (val: RequesterSelectorValue, newDetails?: NewUserDetails) => void;
     onNewDetailsChange?: (details: NewUserDetails) => void;
+    errors?: {
+        firstName?: string;
+        telegramHandle?: string;
+        requester?: string;
+    };
 }
 
-export function RequesterSelector({ requesters, value, onChange, onNewDetailsChange }: RequesterSelectorProps) {
+export function RequesterSelector({ requesters, value, onChange, onNewDetailsChange, errors }: RequesterSelectorProps) {
     const [open, setOpen] = React.useState(false);
 
     // New user form state
@@ -70,33 +75,43 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
 
     if (isCreating) {
         return (
-            <div className="space-y-3 border p-3 rounded-md bg-muted/20">
-                <div className="flex justify-between items-center">
-                    <h4 className="font-semibold text-sm">New Requester</h4>
-                    <Button variant="ghost" size="sm" onClick={() => onChange(undefined)}>Cancel</Button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <Label>First Name *</Label>
-                        <Input value={newDetails.firstName} onChange={(e) => handleNewChange("firstName", e.target.value)} placeholder="John" required />
+            <div 
+                className="space-y-3"
+                onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+            >
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <Label className={cn(errors?.firstName && "text-destructive")}>First Name *</Label>
+                        <Input 
+                            value={newDetails.firstName} 
+                            onChange={(e) => handleNewChange("firstName", e.target.value)} 
+                            placeholder="John"
+                            className={cn(errors?.firstName && "border-destructive")}
+                        />
+                        {errors?.firstName && (
+                            <p className="text-destructive text-[0.8rem] font-medium">{errors.firstName}</p>
+                        )}
                     </div>
-                    <div>
+                    <div className="space-y-1">
                         <Label>Last Name (Optional)</Label>
                         <Input value={newDetails.lastName} onChange={(e) => handleNewChange("lastName", e.target.value)} placeholder="Doe" />
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                    <div>
-                        <Label>Telegram Handle *</Label>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <Label className={cn(errors?.telegramHandle && "text-destructive")}>Telegram Handle *</Label>
                         <Input 
                             type="text"
                             value={newDetails.telegramHandle} 
                             onChange={(e) => handleNewChange("telegramHandle", e.target.value)} 
-                            placeholder="@username or username" 
-                            required
+                            placeholder="@username or username"
+                            className={cn(errors?.telegramHandle && "border-destructive")}
                         />
+                        {errors?.telegramHandle && (
+                            <p className="text-destructive text-[0.8rem] font-medium">{errors.telegramHandle}</p>
+                        )}
                     </div>
-                    <div>
+                    <div className="space-y-1">
                         <Label>NUSNET ID (Optional)</Label>
                         <Input value={newDetails.nusnet} onChange={(e) => handleNewChange("nusnet", e.target.value)} placeholder="E0123456" />
                     </div>
@@ -106,22 +121,30 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
     }
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-full justify-between"
-                >
-                    {selectedLabel}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
+        <div className="space-y-1">
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className={cn("w-full justify-between", errors?.requester && "border-destructive")}
+                    >
+                        {selectedLabel}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                 <Command>
                     <CommandInput placeholder="Search requester..." />
-                    <CommandList>
+                    <CommandList 
+                        className="max-h-[300px] overflow-y-auto overscroll-contain"
+                        onWheel={(e) => {
+                            e.stopPropagation();
+                            const target = e.currentTarget;
+                            target.scrollTop += e.deltaY;
+                        }}
+                    >
                         <CommandEmpty>No requester found.</CommandEmpty>
                         <CommandGroup>
                             {requesters.map((req) => {
@@ -153,12 +176,16 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                                 onChange("new");
                                 setOpen(false);
                             }}>
-                                <Plus className="mr-2 h-4 w-4" /> create New Requester
+                                <Plus className="mr-2 h-4 w-4" /> Create New Requester
                             </CommandItem>
                         </CommandGroup>
                     </CommandList>
                 </Command>
             </PopoverContent>
         </Popover>
+        {errors?.requester && (
+            <p className="text-destructive text-[0.8rem] font-medium">{errors.requester}</p>
+        )}
+        </div>
     );
 }

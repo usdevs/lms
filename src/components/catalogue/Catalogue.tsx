@@ -272,94 +272,82 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {items.map((item) => (
             <div
               key={item.itemId}
-              className="flex flex-col rounded-lg bg-white p-6"
+              className="flex flex-col rounded-lg bg-white overflow-hidden"
             >
-              {/*Display Image*/}
-              <div className="relative w-full">
-                <div className="absolute top-8 right-0 h-32 w-32 bg-gray-100 flex items-center justify-center rounded-bl-lg overflow-hidden">
-                  {item.itemImage ? (
-                    <img
+              {/* Image - square aspect ratio container with cover crop */}
+              <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
+                {item.itemImage ? (
+                  <img
                     src={item.itemImage}
                     alt={item.itemDesc}
-                    className="h-full w-full object-cover"
+                    className="w-full h-full object-cover"
                     loading="lazy"
-                    />
-                  ) : (
-                    <span className="text-gray-400">No Image</span>  
-                  )}
-                </div>
-              </div>
-
-              <h3 className="mb-3 text-center text-xl font-bold text-gray-900">
-                {item.itemDesc}
-              </h3>
-              <div className="mb-4 flex-1 space-y-2 text-sm text-gray-700">
-                <p>
-                  <span className="font-semibold">Storage Location:</span>{" "}
-                  {item.sloc.slocName}  
-                </p>
-                <p>
-                  <span className="font-semibold">Inventory Holder:</span>{" "}
-                  {item.ih.ihName}
-                </p>
-                <p className="mt-3 text-xs leading-relaxed text-[#A1A1A1]">
-                  {item.itemRemarks ? (
-                    item.itemRemarks
-                  ) : (
-                    <span className="text-gray-400 italic">-</span>
-                  )}
-                </p>
-              </div>
-
-              <div className="mb-4 pt-4 border-t border-gray-100">
-                <div className="grid grid-cols-2 gap-x-6">
-                  <div>
-                    <span className="font-semibold block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Total Owned</span>
-                    <span className="text-xl font-medium text-gray-900">{item.totalQty}</span>
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">No Image</span>
                   </div>
-                  <div>
-                    <span className="font-semibold block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Available</span>
-                    <span className={cn("text-xl font-bold", item.netQty > 0 ? "text-green-600" : "text-destructive")}>
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="p-4 flex flex-col flex-1">
+                <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2">
+                  {item.itemDesc}
+                </h3>
+                
+                <div className="text-xs text-gray-500 space-y-1 mb-3">
+                  <p className="truncate">{item.sloc.slocName}</p>
+                  <p className="truncate">{item.ih.ihName}</p>
+                </div>
+
+                {/* Quantity row */}
+                <div className="flex items-center gap-4 pt-2 border-t border-gray-100 mt-auto">
+                  <div className="flex-1">
+                    <span className="text-[10px] uppercase tracking-wider text-gray-400 block">Total</span>
+                    <span className="text-lg font-medium text-gray-900">{item.totalQty}</span>
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-[10px] uppercase tracking-wider text-gray-400 block">Available</span>
+                    <span className={cn("text-lg font-bold", item.netQty > 0 ? "text-green-600" : "text-destructive")}>
                       {item.netQty}
                     </span>
                   </div>
+                  <div className="flex gap-1">
+                    <EditItemModal
+                      slocs={slocs}
+                      ihs={ihs}
+                      mode="edit"
+                      item={{
+                        itemId: item.itemId,
+                        itemDesc: item.itemDesc,
+                        itemQty: item.itemQty,
+                        itemUom: item.itemUom,
+                        itemSloc: item.itemSloc,
+                        itemIh: item.itemIh,
+                        itemRemarks: item.itemRemarks,
+                        itemPurchaseDate: item.itemPurchaseDate,
+                        itemRfpNumber: item.itemRfpNumber,
+                        itemImage: item.itemImage,
+                      }}
+                      trigger={
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      }
+                      onSuccess={refreshItems}
+                    />
+                    <DeleteItemButton
+                      itemId={Number(item.itemId)}
+                      itemDesc={item.itemDesc}
+                      onDelete={refreshItems}
+                    />
+                  </div>
                 </div>
-              </div>
-
-
-              <div className="flex justify-end gap-2">
-                <EditItemModal
-                  slocs={slocs}
-                  ihs={ihs}
-                  mode="edit"
-                  item={{
-                    itemId: item.itemId,
-                    itemDesc: item.itemDesc,
-                    itemQty: item.itemQty,
-                    itemUom: item.itemUom,
-                    itemSloc: item.itemSloc,
-                    itemIh: item.itemIh,
-                    itemRemarks: item.itemRemarks,
-                    itemPurchaseDate: item.itemPurchaseDate,
-                    itemRfpNumber: item.itemRfpNumber,
-                    itemImage: item.itemImage,
-                  }}
-                  trigger={
-                    <Button variant="outline" size="sm">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  }
-                  onSuccess={refreshItems}
-                />
-                <DeleteItemButton
-                  itemId={Number(item.itemId)}
-                  itemDesc={item.itemDesc}
-                  onDelete={refreshItems}
-                />
               </div>
             </div>
           ))}
