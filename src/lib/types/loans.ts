@@ -1,14 +1,14 @@
 import { getLoans } from "../utils/server/loans";
 
 // Enums for loan statuses
-export enum RequestStatus {
+export enum LoanRequestStatus {
   PENDING = "PENDING",
   ONGOING = "ONGOING",
   COMPLETED = "COMPLETED",
   REJECTED = "REJECTED",
 }
 
-export enum LoanStatus {
+export enum LoanItemStatus {
   PENDING = "PENDING",
   ON_LOAN = "ON_LOAN",
   RETURNED = "RETURNED",

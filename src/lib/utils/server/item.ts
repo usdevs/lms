@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { LoanStatus } from "@/lib/types/loans";
+import { LoanItemStatus } from "@/lib/types/loans";
 
 export const getItems = async () => {
   const items = await prisma.item.findMany({
@@ -22,13 +22,13 @@ export const getItems = async () => {
   // Calculate pending and on-loan counts
   const pendingCounts = await prisma.loanItemDetail.groupBy({
     by: ['itemId'],
-    where: { loanStatus: LoanStatus.PENDING },
+    where: { loanStatus: LoanItemStatus.PENDING },
     _sum: { loanQty: true }
   });
 
   const onLoanCounts = await prisma.loanItemDetail.groupBy({
     by: ['itemId'],
-    where: { loanStatus: LoanStatus.ON_LOAN },
+    where: { loanStatus: LoanItemStatus.ON_LOAN },
     _sum: { loanQty: true }
   });
 

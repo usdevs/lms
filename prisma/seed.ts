@@ -1,4 +1,5 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, IHType } from '@prisma/client';
+import { LoanRequestStatus, LoanItemStatus } from '../src/lib/types/loans';
 
 const prisma = new PrismaClient();
 
@@ -67,13 +68,13 @@ async function main() {
   // 3. Create IH
   console.log('Creating IHs...');
   const ih1 = await prisma.iH.create({
-    data: { ihId: 'IH001', ihName: 'John Doe', ihType: 'INDIVIDUAL' }
+    data: { ihId: 'IH001', ihName: 'John Doe', ihType: IHType.INDIVIDUAL }
   });
   const ih2 = await prisma.iH.create({
-    data: { ihId: 'IH002', ihName: 'Jane Smith', ihType: 'INDIVIDUAL' }
+    data: { ihId: 'IH002', ihName: 'Jane Smith', ihType: IHType.INDIVIDUAL }
   });
   const ih3 = await prisma.iH.create({
-    data: { ihId: 'IH003', ihName: 'NUSC Club Logistics', ihType: 'GROUP' }
+    data: { ihId: 'IH003', ihName: 'NUSC Club Logistics', ihType: IHType.GROUP }
   });
 
   // 4. Create IH Members
@@ -114,11 +115,10 @@ async function main() {
     data: {
       loanDateStart: new Date('2024-12-20'),
       loanDateEnd: new Date('2024-12-22'),
-      // Assuming FINAL schema has reqId pointing to User
       reqId: req1.userId,
       loggieId: logs1.userId,
       organisation: 'Computing Club',
-      requestStatus: 'approved'
+      requestStatus: LoanRequestStatus.ONGOING // Approved/ongoing loan
     }
   });
 
@@ -129,7 +129,7 @@ async function main() {
       reqId: req2.userId,
       loggieId: logs2.userId,
       organisation: 'Engin Soc',
-      requestStatus: 'pending'
+      requestStatus: LoanRequestStatus.PENDING
     }
   });
 
@@ -139,16 +139,32 @@ async function main() {
       loanDateEnd: new Date('2025-01-07'),
       reqId: req3.userId,
       organisation: 'NUSSU',
-      requestStatus: 'approved'
+      requestStatus: LoanRequestStatus.ONGOING // Approved/ongoing loan
     }
   });
 
   // 7. Loan Details
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanStatus: 'loaned', itemSlocAtLoan: sloc1.slocId, itemIhAtLoan: ih1.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanStatus: 'loaned', itemSlocAtLoan: sloc1.slocId, itemIhAtLoan: ih1.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item3.itemId, loanQty: 5, loanStatus: 'pending', itemSlocAtLoan: sloc2.slocId, itemIhAtLoan: ih2.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item4.itemId, loanQty: 1, loanStatus: 'pending', itemSlocAtLoan: sloc3.slocId, itemIhAtLoan: ih3.ihId } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanStatus: 'approved', itemSlocAtLoan: sloc2.slocId, itemIhAtLoan: ih2.ihId } });
+  // lr1: Ongoing loan with items on loan (stock must be deducted)
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanStatus: LoanItemStatus.ON_LOAN, itemSlocAtLoan: sloc1.slocId, itemIhAtLoan: ih1.ihId } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanStatus: LoanItemStatus.ON_LOAN, itemSlocAtLoan: sloc1.slocId, itemIhAtLoan: ih1.ihId } });
+  
+  // Deduct stock for lr1 items
+  await prisma.item.update({ where: { itemId: item1.itemId }, data: { itemQty: { decrement: 2 } } });
+  await prisma.item.update({ where: { itemId: item2.itemId }, data: { itemQty: { decrement: 1 } } });
+
+  // lr2: Pending loan (no stock deduction)
+  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item3.itemId, loanQty: 5, loanStatus: LoanItemStatus.PENDING, itemSlocAtLoan: sloc2.slocId, itemIhAtLoan: ih2.ihId } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item4.itemId, loanQty: 1, loanStatus: LoanItemStatus.PENDING, itemSlocAtLoan: sloc3.slocId, itemIhAtLoan: ih3.ihId } });
+
+  // lr3: Ongoing loan with item on loan (stock must be deducted)
+  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanStatus: LoanItemStatus.ON_LOAN, itemSlocAtLoan: sloc2.slocId, itemIhAtLoan: ih2.ihId } });
+  
+  // Deduct stock for lr3 item
+  const updatedItem5 = await prisma.item.update({ 
+    where: { itemId: item5.itemId }, 
+    data: { itemQty: { decrement: 10 } } 
+  });
+  console.log(`✓ Deducted 10 from Table (itemId: ${item5.itemId}). New qty: ${updatedItem5.itemQty}`);
 
   console.log('Seed completed!');
 }
