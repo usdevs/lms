@@ -117,7 +117,7 @@ async function main() {
       reqId: req1.userId,
       loggieId: logs1.userId,
       organisation: 'Computing Club',
-      loanRequestStatus: LoanRequestStatus.ONGOING // Approved/ongoing loan
+      loanRequestStatus: LoanRequestStatus.PENDING // Pending approval (no stock deduction)
     }
   });
 
@@ -138,32 +138,23 @@ async function main() {
       loanDateEnd: new Date('2025-01-07'),
       reqId: req3.userId,
       organisation: 'NUSSU',
-      loanRequestStatus: LoanRequestStatus.ONGOING // Approved/ongoing loan
+      loanRequestStatus: LoanRequestStatus.REJECTED // Rejected loan (no stock deduction)
     }
   });
 
   // 7. Loan Details
-  // lr1: Ongoing loan with items on loan (stock must be deducted)
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanItemStatus: LoanItemStatus.ON_LOAN } });
-  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanItemStatus: LoanItemStatus.ON_LOAN } });
+  // All loans are PENDING or REJECTED - no stock deduction
   
-  // Deduct stock for lr1 items
-  await prisma.item.update({ where: { itemId: item1.itemId }, data: { itemQty: { decrement: 2 } } });
-  await prisma.item.update({ where: { itemId: item2.itemId }, data: { itemQty: { decrement: 1 } } });
+  // lr1: Pending loan (no stock deduction)
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item1.itemId, loanQty: 2, loanItemStatus: LoanItemStatus.PENDING } });
+  await prisma.loanItemDetail.create({ data: { refNo: lr1.refNo, itemId: item2.itemId, loanQty: 1, loanItemStatus: LoanItemStatus.PENDING } });
 
   // lr2: Pending loan (no stock deduction)
   await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item3.itemId, loanQty: 5, loanItemStatus: LoanItemStatus.PENDING } });
   await prisma.loanItemDetail.create({ data: { refNo: lr2.refNo, itemId: item4.itemId, loanQty: 1, loanItemStatus: LoanItemStatus.PENDING } });
 
-  // lr3: Ongoing loan with item on loan (stock must be deducted)
-  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanItemStatus: LoanItemStatus.ON_LOAN } });
-  
-  // Deduct stock for lr3 item
-  const updatedItem5 = await prisma.item.update({ 
-    where: { itemId: item5.itemId }, 
-    data: { itemQty: { decrement: 10 } } 
-  });
-  console.log(`✓ Deducted 10 from Table (itemId: ${item5.itemId}). New qty: ${updatedItem5.itemQty}`);
+  // lr3: Rejected loan (no stock deduction)
+  await prisma.loanItemDetail.create({ data: { refNo: lr3.refNo, itemId: item5.itemId, loanQty: 10, loanItemStatus: LoanItemStatus.REJECTED } });
 
   console.log('Seed completed!');
 }
