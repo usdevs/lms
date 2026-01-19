@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { toast } from "sonner";
 import { UserRole } from "@prisma/client";
 import { Pencil, Plus } from "lucide-react";

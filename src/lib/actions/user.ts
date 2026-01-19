@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { IHType, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateUserWithGroupsSchema, UpdateUserSchema, CreateGroupIHSchema } from "@/lib/schema/user";
@@ -315,6 +315,15 @@ export async function removeUserFromGroup(userId: number, ihId: string): Promise
 export async function setPrimaryPOC(ihId: string, userId: number): Promise<ActionResult> {
     try {
         await prisma.$transaction(async (tx) => {
+            // Verify membership exists first
+            const membership = await tx.iHMember.findUnique({
+                where: { userId_ihId: { userId, ihId } }
+            });
+            
+            if (!membership) {
+                throw new Error("User is not a member of this group");
+            }
+
             // Unset current primary
             await tx.iHMember.updateMany({
                 where: { ihId, isPrimary: true },

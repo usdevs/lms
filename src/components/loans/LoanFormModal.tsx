@@ -327,36 +327,66 @@ export function LoanFormModal({
                                 <FormField
                                     control={form.control}
                                     name="loanDateStart"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Start Date</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="date"
-                                                    value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                                                    onChange={e => field.onChange(new Date(e.target.value))}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
+                                    render={({ field }) => {
+                                        // Format date for input without timezone conversion
+                                        const formatDateForInput = (date: Date | null | undefined) => {
+                                            if (!date) return '';
+                                            const d = new Date(date);
+                                            const year = d.getFullYear();
+                                            const month = String(d.getMonth() + 1).padStart(2, '0');
+                                            const day = String(d.getDate()).padStart(2, '0');
+                                            return `${year}-${month}-${day}`;
+                                        };
+                                        return (
+                                            <FormItem>
+                                                <FormLabel>Start Date</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="date"
+                                                        value={formatDateForInput(field.value)}
+                                                        onChange={e => {
+                                                            // Parse as local date to avoid timezone shift
+                                                            const [year, month, day] = e.target.value.split('-').map(Number);
+                                                            field.onChange(new Date(year, month - 1, day));
+                                                        }}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        );
+                                    }}
                                 />
                                 <FormField
                                     control={form.control}
                                     name="loanDateEnd"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>End Date</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="date"
-                                                    value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                                                    onChange={e => field.onChange(new Date(e.target.value))}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
+                                    render={({ field }) => {
+                                        // Format date for input without timezone conversion
+                                        const formatDateForInput = (date: Date | null | undefined) => {
+                                            if (!date) return '';
+                                            const d = new Date(date);
+                                            const year = d.getFullYear();
+                                            const month = String(d.getMonth() + 1).padStart(2, '0');
+                                            const day = String(d.getDate()).padStart(2, '0');
+                                            return `${year}-${month}-${day}`;
+                                        };
+                                        return (
+                                            <FormItem>
+                                                <FormLabel>End Date</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="date"
+                                                        value={formatDateForInput(field.value)}
+                                                        onChange={e => {
+                                                            // Parse as local date to avoid timezone shift
+                                                            const [year, month, day] = e.target.value.split('-').map(Number);
+                                                            field.onChange(new Date(year, month - 1, day));
+                                                        }}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        );
+                                    }}
                                 />
                             </div>
 

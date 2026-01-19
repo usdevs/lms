@@ -65,11 +65,13 @@ export function LoansTable({ data, items }: LoansTableProps) {
       const result = await returnItem(detailId);
       if (result.success) {
         toast.success("Item marked as returned");
+        // Update local state with the actual status from server (RETURNED or RETURNED_LATE)
         if (selectedLoan) {
+          const returnedStatus = result.status || LoanItemStatus.RETURNED;
           setSelectedLoan({
             ...selectedLoan,
             loanDetails: selectedLoan.loanDetails.map(d =>
-              d.loanDetailId === detailId ? { ...d, loanItemStatus: LoanItemStatus.RETURNED } : d
+              d.loanDetailId === detailId ? { ...d, loanItemStatus: returnedStatus } : d
             )
           });
         }

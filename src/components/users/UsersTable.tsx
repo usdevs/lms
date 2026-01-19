@@ -72,7 +72,7 @@ export function UsersTable({ users, groups, onRefresh }: UsersTableProps) {
     const getUserGroups = (user: UserWithDetails) => {
         return user.ihMemberships
             .filter((m) => m.ih.ihType === "GROUP" || m.ih.ihType === "DEPARTMENT")
-            .map((m) => m.ih.ihName);
+            .map((m) => ({ ihId: m.ih.ihId, ihName: m.ih.ihName }));
     };
 
     const hasLoans = (user: UserWithDetails) => {
@@ -150,13 +150,13 @@ export function UsersTable({ users, groups, onRefresh }: UsersTableProps) {
                             <TableCell>
                                 {getUserGroups(user).length > 0 ? (
                                     <div className="flex flex-wrap gap-1">
-                                        {getUserGroups(user).slice(0, 2).map((name) => (
+                                        {getUserGroups(user).slice(0, 2).map((group) => (
                                             <Badge
-                                                key={name}
+                                                key={group.ihId}
                                                 variant="outline"
                                                 className="text-xs"
                                             >
-                                                {name}
+                                                {group.ihName}
                                             </Badge>
                                         ))}
                                         {getUserGroups(user).length > 2 && (

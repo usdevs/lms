@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { LoanItemStatus, LoanRequestStatus, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateLoanSchema } from "@/lib/schema/loan";
@@ -312,7 +312,7 @@ export async function deleteLoan(refNo: number) {
 
 export async function returnItem(loanDetailId: number) {
     try {
-        await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
 
             const detail = await tx.loanItemDetail.findUnique({
                 where: { loanDetailId },
@@ -320,7 +320,14 @@ export async function returnItem(loanDetailId: number) {
             });
 
             if (!detail) throw new Error("Loan detail not found");
-            if (detail.loanItemStatus === LoanItemStatus.RETURNED || detail.loanItemStatus === LoanItemStatus.RETURNED_LATE) return; // Already returned
+            
+            // Only items that are ON_LOAN can be returned
+            if (detail.loanItemStatus !== LoanItemStatus.ON_LOAN) {
+                if (detail.loanItemStatus === LoanItemStatus.RETURNED || detail.loanItemStatus === LoanItemStatus.RETURNED_LATE) {
+                    return { alreadyReturned: true };
+                }
+                throw new Error("Item is not currently on loan");
+            }
 
             // Check for late return
             const isLate = new Date() > detail.loanRequest.loanDateEnd;
@@ -356,11 +363,18 @@ export async function returnItem(loanDetailId: number) {
                     data: { loanRequestStatus: LoanRequestStatus.COMPLETED }
                 });
             }
+
+            return { newStatus };
         });
+
+        // Handle already returned case
+        if (result.alreadyReturned) {
+            return { success: true, message: "Item was already returned" };
+        }
 
         revalidatePath("/loans");
         revalidatePath("/catalogue");
-        return { success: true };
+        return { success: true, status: result.newStatus };
     } catch (e: any) {
         console.error("Return item error:", e);
         return { success: false, error: e.message };

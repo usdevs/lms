@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -79,7 +78,6 @@ export default function ItemFormModal({
   const [selectedFile, setSelectedFile] = useState<File |null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(item?.itemImage ?? null);
   const [deleteImage, setDeleteImage] = useState(false);
-  const router = useRouter();
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -134,7 +132,7 @@ export default function ItemFormModal({
       }
     } 
 
-    const finalValues = {...values, ...(photoUrl ? { itemImage: photoUrl } : ""), ...(deleteImage ? {deleteImage: true } : {})};
+    const finalValues = {...values, ...(photoUrl ? { itemImage: photoUrl } : {}), ...(deleteImage ? {deleteImage: true } : {})};
     const formData = objectToFormData(finalValues);
 
     const result =
