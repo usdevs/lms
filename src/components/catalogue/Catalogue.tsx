@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import EditItemModal from "./EditItemModal";
+import ItemFormModal from "./ItemFormModal";
 import DeleteItemButton from "./DeleteItemButton";
 import { getItemsPaginated } from "@/lib/actions/item";
 import { IHView } from "@/lib/types/ih";
@@ -172,7 +172,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
           <p className="text-white/80">{totalItems} ITEMS</p>
         </div>
-        <EditItemModal slocs={slocs} ihs={ihs} mode="add" onSuccess={refreshItems} />
+        <ItemFormModal slocs={slocs} ihs={ihs} mode="add" onSuccess={refreshItems} />
       </div>
 
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -295,7 +295,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                 
                 {/* Action buttons - appear on hover */}
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <EditItemModal
+                  <ItemFormModal
                     slocs={slocs}
                     ihs={ihs}
                     mode="edit"

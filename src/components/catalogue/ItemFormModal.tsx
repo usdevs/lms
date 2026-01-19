@@ -53,7 +53,7 @@ type ItemForEdit =
     };
   }>;
 
-interface EditItemModalProps {
+interface ItemFormModalProps {
   slocs: SlocView[];
   ihs: IHView[];
   item?: ItemForEdit;
@@ -64,7 +64,7 @@ interface EditItemModalProps {
   onSuccess?: () => void;
 }
 
-export default function EditItemModal({
+export default function ItemFormModal({
   slocs,
   ihs,
   item,
@@ -73,7 +73,7 @@ export default function EditItemModal({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   onSuccess,
-}: EditItemModalProps) {
+}: ItemFormModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File |null>(null);
