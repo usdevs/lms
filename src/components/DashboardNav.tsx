@@ -10,6 +10,7 @@ export function DashboardNav() {
     const tabs = [
         { name: "CATALOGUE", href: "/catalogue" },
         { name: "LOANS", href: "/loans" },
+        { name: "USERS", href: "/users" },
     ];
 
     return (

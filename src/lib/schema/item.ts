@@ -1,4 +1,4 @@
-import { z } from "zod/v4";
+import { z } from "zod";
 
 // Treat empty/undefined/null as undefined, otherwise coerce to Date
 const optionalDate = z.preprocess(

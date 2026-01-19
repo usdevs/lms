@@ -1,4 +1,4 @@
-import { z } from "zod/v4";
+import { z } from "zod";
 import { CreateUserSchema } from "./user";
 
 // --- Sub-schemas ---
@@ -29,4 +29,7 @@ export const CreateLoanSchema = z.object({
 }).refine((data) => !!data.requesterId || !!data.newRequester, {
     message: "You must select or create a requester",
     path: ["requesterId"],
+}).refine((data) => data.loanDateEnd >= data.loanDateStart, {
+    message: "End date must be on or after start date",
+    path: ["loanDateEnd"],
 });

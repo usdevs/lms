@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,7 +52,7 @@ type ItemForEdit =
     };
   }>;
 
-interface EditItemModalProps {
+interface ItemFormModalProps {
   slocs: SlocView[];
   ihs: IHView[];
   item?: ItemForEdit;
@@ -64,7 +63,7 @@ interface EditItemModalProps {
   onSuccess?: () => void;
 }
 
-export default function EditItemModal({
+export default function ItemFormModal({
   slocs,
   ihs,
   item,
@@ -73,13 +72,12 @@ export default function EditItemModal({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   onSuccess,
-}: EditItemModalProps) {
+}: ItemFormModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File |null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(item?.itemImage ?? null);
   const [deleteImage, setDeleteImage] = useState(false);
-  const router = useRouter();
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -134,7 +132,7 @@ export default function EditItemModal({
       }
     } 
 
-    const finalValues = {...values, ...(photoUrl ? { itemImage: photoUrl } : ""), ...(deleteImage ? {deleteImage: true } : {})};
+    const finalValues = {...values, ...(photoUrl ? { itemImage: photoUrl } : {}), ...(deleteImage ? {deleteImage: true } : {})};
     const formData = objectToFormData(finalValues);
 
     const result =

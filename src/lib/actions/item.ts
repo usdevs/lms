@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod/v4";
+import { z } from "zod";
 import fs from "fs";
 import path from "path";
 
@@ -23,7 +23,7 @@ export async function createItem(formData: FormData) {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: z.prettifyError(error),
+        error: error.issues.map((e) => e.message).join(", "),
       };
     }
     return {
@@ -75,7 +75,7 @@ export async function updateItem(itemId: number, formData: FormData) {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: z.prettifyError(error),
+        error: error.issues.map((e) => e.message).join(", "),
       };
     }
     return {
@@ -87,10 +87,7 @@ export async function updateItem(itemId: number, formData: FormData) {
   const deleteImage = formData.get("deleteImage") === "true"; // Checks whether to delete   
 
   try {
-    // Delete image 
-    const fs = require("fs");
-    const path = require("path");
-
+    // Delete image if requested
     if (deleteImage && data.itemImage) {
       try {
         const filePath = path.join(
@@ -110,9 +107,8 @@ export async function updateItem(itemId: number, formData: FormData) {
     }
 
     await prisma.item.update({
-      where: { itemId: itemId as any },
+      where: { itemId },
       data: {
-        itemId: itemId,
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
         itemIh: data.itemIh.trim(),
@@ -152,7 +148,7 @@ export async function deleteItem(itemId: number) {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: z.prettifyError(error),
+        error: error.issues.map((e) => e.message).join(", "),
       };
     }
     return {
@@ -162,8 +158,23 @@ export async function deleteItem(itemId: number) {
   }
 
   try {
+    // Check for active loans before deletion
+    const activeLoans = await prisma.loanItemDetail.findFirst({
+      where: {
+        itemId: data.itemId,
+        loanItemStatus: { in: [LoanItemStatus.PENDING, LoanItemStatus.ON_LOAN] }
+      }
+    });
+
+    if (activeLoans) {
+      return {
+        success: false,
+        error: "Cannot delete item with active or pending loans. Return or reject all loans first.",
+      };
+    }
+
     await prisma.item.delete({
-      where: { itemId: data.itemId as any },
+      where: { itemId: data.itemId },
     });
   } catch (error: any) {
     console.error("Error deleting item:", error);
@@ -345,6 +356,9 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
   }
 }
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
 export async function uploadItemImage(formData: FormData): Promise<{ url: string } | { error: string }> {
   try {
     const file = formData.get("photo") as File;
@@ -353,13 +367,33 @@ export async function uploadItemImage(formData: FormData): Promise<{ url: string
       return { error: "No file uploaded" };
     }
 
+    // Validate file type
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return { error: "Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed." };
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      return { error: "File too large. Maximum size is 10MB." };
+    }
+
     const uploadsDir = path.join(process.cwd(), "public/uploads");
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    const uniqueName = `${Date.now()}-${file.name}`;
+    // Sanitize filename - remove any path traversal characters and special chars
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const uniqueName = `${Date.now()}-${sanitizedName}`;
     const filePath = path.join(uploadsDir, uniqueName);
+    
+    // Double-check the resolved path is still within uploads directory
+    const resolvedPath = path.resolve(filePath);
+    const resolvedUploadsDir = path.resolve(uploadsDir);
+    if (!resolvedPath.startsWith(resolvedUploadsDir)) {
+      return { error: "Invalid file path" };
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
 
