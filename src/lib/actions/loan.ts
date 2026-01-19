@@ -193,6 +193,123 @@ export async function rejectLoan(refNo: number) {
     }
 }
 
+/**
+ * Update a pending loan request
+ * Only allowed for PENDING loans (pre-approval)
+ */
+export async function updateLoan(refNo: number, data: {
+    loanDateStart: Date;
+    loanDateEnd: Date;
+    organisation?: string;
+    eventDetails?: string;
+    eventLocation?: string;
+    items: { itemId: number; loanQty: number }[];
+}) {
+    try {
+        await prisma.$transaction(async (tx) => {
+            const request = await tx.loanRequest.findUnique({
+                where: { refNo },
+                include: { loanDetails: true }
+            });
+
+            if (!request) throw new Error("Loan request not found");
+            if (request.loanRequestStatus !== LoanRequestStatus.PENDING) {
+                throw new Error("Can only edit pending loans");
+            }
+
+            // Update loan request details
+            await tx.loanRequest.update({
+                where: { refNo },
+                data: {
+                    loanDateStart: data.loanDateStart,
+                    loanDateEnd: data.loanDateEnd,
+                    organisation: data.organisation || null,
+                    eventDetails: data.eventDetails || null,
+                    eventLocation: data.eventLocation || null,
+                }
+            });
+
+            // Delete existing loan item details
+            await tx.loanItemDetail.deleteMany({
+                where: { refNo }
+            });
+
+            // Create new loan item details
+            for (const loanItem of data.items) {
+                const dbItem = await tx.item.findUnique({ where: { itemId: loanItem.itemId } });
+                if (!dbItem) throw new Error(`Item ${loanItem.itemId} not found`);
+
+                // Check available stock (excluding this loan's previous pending items)
+                const pendingAgg = await tx.loanItemDetail.aggregate({
+                    where: {
+                        itemId: loanItem.itemId,
+                        loanItemStatus: LoanItemStatus.PENDING,
+                        refNo: { not: refNo }
+                    },
+                    _sum: { loanQty: true }
+                });
+
+                const currentPending = pendingAgg._sum.loanQty || 0;
+                const netAvailable = dbItem.itemQty - currentPending;
+
+                if (loanItem.loanQty > netAvailable) {
+                    throw new Error(`Insufficient allocatable stock for ${dbItem.itemDesc}. Available: ${dbItem.itemQty}, Pending: ${currentPending}, Net: ${netAvailable}. Requested: ${loanItem.loanQty}`);
+                }
+
+                await tx.loanItemDetail.create({
+                    data: {
+                        refNo,
+                        itemId: loanItem.itemId,
+                        loanQty: loanItem.loanQty,
+                        loanItemStatus: LoanItemStatus.PENDING,
+                    }
+                });
+            }
+        });
+
+        revalidatePath("/loans");
+        return { success: true };
+    } catch (e: any) {
+        console.error("Failed to update loan:", e);
+        return { success: false, error: e.message || "Failed to update loan" };
+    }
+}
+
+/**
+ * Delete a pending loan request
+ * Only allowed for PENDING loans (pre-approval)
+ */
+export async function deleteLoan(refNo: number) {
+    try {
+        await prisma.$transaction(async (tx) => {
+            const request = await tx.loanRequest.findUnique({
+                where: { refNo }
+            });
+
+            if (!request) throw new Error("Loan request not found");
+            if (request.loanRequestStatus !== LoanRequestStatus.PENDING) {
+                throw new Error("Can only delete pending loans");
+            }
+
+            // Delete loan item details first (cascade should handle this, but being explicit)
+            await tx.loanItemDetail.deleteMany({
+                where: { refNo }
+            });
+
+            // Delete the loan request
+            await tx.loanRequest.delete({
+                where: { refNo }
+            });
+        });
+
+        revalidatePath("/loans");
+        return { success: true };
+    } catch (e: any) {
+        console.error("Failed to delete loan:", e);
+        return { success: false, error: e.message || "Failed to delete loan" };
+    }
+}
+
 export async function returnItem(loanDetailId: number) {
     try {
         await prisma.$transaction(async (tx) => {

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search } from "lucide-react";
+import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -23,21 +23,42 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { returnItem, approveLoan, rejectLoan } from "@/lib/actions/loan";
+import { returnItem, approveLoan, rejectLoan, deleteLoan } from "@/lib/actions/loan";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { LoanFormModal } from "./LoanFormModal";
 import { LoanWithDetails } from "@/lib/types/loans";
 import { LoanItemStatus, LoanRequestStatus } from "@prisma/client";
+import { ItemOption } from "./ItemSelector";
 
 type FilterStatus = "ALL" | LoanRequestStatus;
 
 interface LoansTableProps {
   data: LoanWithDetails[];
+  items: ItemOption[];
 }
 
-export function LoansTable({ data }: LoansTableProps) {
+export function LoansTable({ data, items }: LoansTableProps) {
   const [selectedLoan, setSelectedLoan] = useState<LoanWithDetails | null>(null);
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
+  const [deletingRefNo, setDeletingRefNo] = useState<number | null>(null);
 
   const handleReturnItem = (detailId: number) => {
     startTransition(async () => {
@@ -79,6 +100,19 @@ export function LoansTable({ data }: LoansTableProps) {
         setSelectedLoan(prev => prev ? { ...prev, loanRequestStatus: LoanRequestStatus.REJECTED } : null);
       } else {
         toast.error("Rejection failed: " + result.error);
+      }
+    });
+  };
+
+  const handleDelete = (refNo: number) => {
+    setDeletingRefNo(refNo);
+    startTransition(async () => {
+      const result = await deleteLoan(refNo);
+      setDeletingRefNo(null);
+      if (result.success) {
+        toast.success("Loan deleted successfully");
+      } else {
+        toast.error("Delete failed: " + result.error);
       }
     });
   };
@@ -164,9 +198,61 @@ export function LoansTable({ data }: LoansTableProps) {
                     <StatusBadge status={loan.loanRequestStatus} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="icon" variant="ghost" onClick={() => setSelectedLoan(loan)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="icon" variant="ghost" onClick={() => setSelectedLoan(loan)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>View details</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      
+                      {loan.loanRequestStatus === LoanRequestStatus.PENDING && (
+                        <>
+                          <LoanFormModal loan={loan} items={items} mode="edit" />
+                          
+                          <TooltipProvider>
+                            <Tooltip>
+                              <AlertDialog>
+                                <TooltipTrigger asChild>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                </TooltipTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Loan Request</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete loan #{loan.refNo}? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(loan.refNo)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      disabled={isPending && deletingRefNo === loan.refNo}
+                                    >
+                                      {isPending && deletingRefNo === loan.refNo ? "Deleting..." : "Delete"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                              <TooltipContent>Delete loan</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
