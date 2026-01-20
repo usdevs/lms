@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import fs from "fs";
-import path from "path";
 
 import prisma from "@/lib/prisma";
 import { formDataToObject } from "@/lib/utils";
@@ -14,6 +12,7 @@ import {
 } from "@/lib/schema/item";
 import { Prisma, LoanItemStatus } from "@prisma/client";
 import { ItemPaginationParams, PaginatedItemsResponse } from "../types/items";
+import { supabase } from "../supabase";
 
 export async function createItem(formData: FormData) {
   let data;
@@ -87,18 +86,24 @@ export async function updateItem(itemId: number, formData: FormData) {
   const deleteImage = formData.get("deleteImage") === "true"; // Checks whether to delete   
 
   try {
-    // Delete image if requested
+    // Delete image from Supabase Storage if requested
     if (deleteImage && data.itemImage) {
       try {
-        const filePath = path.join(
-          process.cwd(),
-          "public",
-          data.itemImage.replace(/^\/+/, "")
-        );
-
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          console.log("Deleted old image:", filePath);
+        // Extract filename from Supabase URL
+        // URL format: https://[project].supabase.co/storage/v1/object/public/item-images/[filename]
+        const urlParts = data.itemImage.split('/');
+        const fileName = urlParts[urlParts.length - 1];
+        
+        if (fileName) {
+          const { error } = await supabase.storage
+            .from('item-images')
+            .remove([fileName]);
+          
+          if (error) {
+            console.error("Failed to delete image from Supabase:", error);
+          } else {
+            console.log("Deleted image from Supabase:", fileName);
+          }
         }
         data.itemImage = null; // Clear from database
       } catch (err) {
@@ -171,6 +176,32 @@ export async function deleteItem(itemId: number) {
         success: false,
         error: "Cannot delete item with active or pending loans. Return or reject all loans first.",
       };
+    }
+
+    // Get item to check for image before deleting
+    const item = await prisma.item.findUnique({
+      where: { itemId: data.itemId },
+      select: { itemImage: true },
+    });
+
+    // Delete image from Supabase Storage if exists
+    if (item?.itemImage) {
+      try {
+        const urlParts = item.itemImage.split('/');
+        const fileName = urlParts[urlParts.length - 1];
+        
+        if (fileName) {
+          const { error } = await supabase.storage
+            .from('item-images')
+            .remove([fileName]);
+          
+          if (error) {
+            console.error("Failed to delete image from Supabase:", error);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to delete item image:", err);
+      }
     }
 
     await prisma.item.delete({
@@ -377,28 +408,29 @@ export async function uploadItemImage(formData: FormData): Promise<{ url: string
       return { error: "File too large. Maximum size is 10MB." };
     }
 
-    const uploadsDir = path.join(process.cwd(), "public/uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    // Sanitize filename - remove any path traversal characters and special chars
+    // Sanitize filename
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const uniqueName = `${Date.now()}-${sanitizedName}`;
-    const filePath = path.join(uploadsDir, uniqueName);
-    
-    // Double-check the resolved path is still within uploads directory
-    const resolvedPath = path.resolve(filePath);
-    const resolvedUploadsDir = path.resolve(uploadsDir);
-    if (!resolvedPath.startsWith(resolvedUploadsDir)) {
-      return { error: "Invalid file path" };
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('item-images')
+      .upload(uniqueName, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) {
+      console.error("Supabase storage error:", error);
+      return { error: "Failed to upload file" };
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('item-images')
+      .getPublicUrl(data.path);
 
-    const url = `/uploads/${uniqueName}`;
-    return { url };
+    return { url: publicUrl };
   } catch (error) {
     console.error("Failed to upload file:", error);
     return { error: "Failed to upload file" };

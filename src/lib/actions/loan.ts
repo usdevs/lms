@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { LoanItemStatus, LoanRequestStatus, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateLoanSchema } from "@/lib/schema/loan";
