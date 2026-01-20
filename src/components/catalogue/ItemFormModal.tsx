@@ -35,6 +35,7 @@ import { Spinner } from "@/components/ui/spinner";
 import type { Prisma } from "@prisma/client";
 import { IHView } from "@/lib/types/ih";
 import { SlocView } from "@/lib/types/slocs";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 type ItemForEdit =
   Prisma.ItemGetPayload<{
@@ -75,9 +76,11 @@ export default function ItemFormModal({
 }: ItemFormModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File |null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(item?.itemImage ?? null);
-  const [deleteImage, setDeleteImage] = useState(false);
+  const [shouldDeleteOldImage, setShouldDeleteOldImage] = useState(false);
+  // Track the original image URL so we can delete it when replacing
+  const originalImageUrl = item?.itemImage ?? null;
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -115,23 +118,40 @@ export default function ItemFormModal({
   async function onSubmit(values: Record<string, unknown>) {
     setIsSubmitting(true);
 
-    let photoUrl = item?.itemImage ?? null;
+    let photoUrl: string | null = null;
     
+    // Upload new image if selected
     if (selectedFile) {
       const uploadFormData = new FormData();
       uploadFormData.append("photo", selectedFile);
 
       const uploadResult = await uploadItemImage(uploadFormData);
       if ("url" in uploadResult && uploadResult.url) {
-        photoUrl = uploadResult.url; // Supabase returns full URL
+        photoUrl = uploadResult.url;
       } else if ("error" in uploadResult) {
         toast.error(uploadResult.error || "Failed to upload image");
         setIsSubmitting(false);
         return;
       }
-    } 
+    } else if (!shouldDeleteOldImage && originalImageUrl) {
+      // Keep existing image if not deleted and no new file
+      photoUrl = originalImageUrl;
+    }
 
-    const finalValues = {...values, ...(photoUrl ? { itemImage: photoUrl } : {}), ...(deleteImage ? {deleteImage: true } : {})};
+    // Build final values
+    const finalValues: Record<string, unknown> = {
+      ...values,
+      // Set itemImage: if we have a new photo use it, if deleting use empty string to signal clear
+      itemImage: photoUrl ?? (shouldDeleteOldImage ? "" : undefined),
+    };
+    
+    // Add delete flag and old image URL if we need to delete the old image
+    // This happens when: 1) User explicitly deleted, or 2) User replaced with new image
+    if (shouldDeleteOldImage && originalImageUrl) {
+      finalValues.deleteImage = true;
+      finalValues.oldImageUrl = originalImageUrl;
+    }
+    
     const formData = objectToFormData(finalValues);
 
     const result =
@@ -177,6 +197,7 @@ export default function ItemFormModal({
       form.reset(defaultValues);
       setSelectedFile(null);
       setPreviewUrl(item?.itemImage ?? null);
+      setShouldDeleteOldImage(false);
     }
   };
 
@@ -371,44 +392,32 @@ export default function ItemFormModal({
               <FormField
                 control={form.control}
                 name="itemImage"
-                render={({ field }) => (
+                render={() => (
                   <FormItem>
-                    <FormLabel htmlFor="itemImage">Upload Image</FormLabel> 
+                    <FormLabel>Item Image</FormLabel>
                     <FormControl>
-                      <Input
-                        id="itemImage" 
-                        type="file" 
-                        accept="image/"
-                        onChange={ (e) => {
-                          const file = e.target.files?.[0] ?? null;
+                      <ImageUpload
+                        value={previewUrl}
+                        onChange={(file) => {
                           setSelectedFile(file);
-                          setPreviewUrl(file ? URL.createObjectURL(file) : item?.itemImage ?? null);
+                          if (file) {
+                            setPreviewUrl(URL.createObjectURL(file));
+                            // Mark for deletion if there was an original image
+                            if (originalImageUrl) {
+                              setShouldDeleteOldImage(true);
+                            }
+                          }
                         }}
-                        className="border rounded-md p-1" 
+                        onDelete={() => {
+                          setSelectedFile(null);
+                          setPreviewUrl(null);
+                          // Mark original image for deletion
+                          if (originalImageUrl) {
+                            setShouldDeleteOldImage(true);
+                          }
+                        }}
+                        disabled={isSubmitting}
                       />
-                      {previewUrl && (
-                        <div className="flex items-end gap-2 mt-2">
-                          <img
-                            src={previewUrl}
-                            alt="Preview"
-                            className="h-32 w-32 object-cover rounded-md border"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="bg-[#0d0a03] hover:bg-[#64615c] text-white"
-                            onClick={() => {
-                              setSelectedFile(null);
-                              setPreviewUrl(null);
-                              field.onChange("");
-                              setDeleteImage(true);
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -84,18 +84,27 @@ export async function updateItem(itemId: number, formData: FormData) {
     };
   }
   
-  const shouldDeleteImage = formData.get("deleteImage") === "true"; // Checks whether to delete   
+  const shouldDeleteImage = formData.get("deleteImage") === "true";
+  const oldImageUrl = formData.get("oldImageUrl") as string | null;
 
   try {
-    // Delete image from storage if requested
-    if (shouldDeleteImage && data.itemImage) {
-      const result = await deleteImage(data.itemImage);
+    // Handle image deletion scenarios:
+    // 1. User explicitly deleted image (shouldDeleteImage=true, no new image)
+    // 2. User replaced image (shouldDeleteImage=true, new image uploaded - oldImageUrl contains the old one)
+    if (shouldDeleteImage && oldImageUrl) {
+      // Delete the OLD image from storage
+      const result = await deleteImage(oldImageUrl);
       if (result.success) {
-        console.log("Deleted image:", data.itemImage);
+        console.log("Deleted old image:", oldImageUrl);
       } else {
-        console.error("Failed to delete image:", result.error);
+        console.error("Failed to delete old image:", result.error);
       }
-      data.itemImage = null; // Clear from database
+      
+      // If no new image was uploaded, clear the itemImage field
+      if (!data.itemImage) {
+        data.itemImage = null;
+      }
+      // If a new image was uploaded, data.itemImage already contains the new URL
     }
 
     await prisma.item.update({
