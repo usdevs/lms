@@ -45,11 +45,12 @@ export async function createItem(formData: FormData) {
         itemImage: data.itemImage?.trim() || null,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating item:", error);
 
     // Handle Prisma-specific errors
-    if (error.code === "P2002") {
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2002") {
       return {
         success: false,
         error: "An item with this ID already exists. Please use a different ID.",
@@ -58,7 +59,7 @@ export async function createItem(formData: FormData) {
 
     return {
       success: false,
-      error: error.message || "Failed to create item. Please try again.",
+      error: prismaError.message || "Failed to create item. Please try again.",
     };
   }
 
@@ -125,10 +126,11 @@ export async function updateItem(itemId: number, formData: FormData) {
         itemImage: data.itemImage?.trim() || null,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error updating item:", error);
 
-    if (error.code === "P2025") {
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2025") {
       return {
         success: false,
         error: "Item not found. It may have been deleted.",
@@ -137,7 +139,7 @@ export async function updateItem(itemId: number, formData: FormData) {
 
     return {
       success: false,
-      error: error.message || "Failed to update item. Please try again.",
+      error: prismaError.message || "Failed to update item. Please try again.",
     };
   }
 
@@ -207,10 +209,11 @@ export async function deleteItem(itemId: number) {
     await prisma.item.delete({
       where: { itemId: data.itemId },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error deleting item:", error);
 
-    if (error.code === "P2025") {
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2025") {
       return {
         success: false,
         error: "Item not found. It may have already been deleted.",
@@ -219,7 +222,7 @@ export async function deleteItem(itemId: number) {
 
     return {
       success: false,
-      error: error.message || "Failed to delete item. Please try again.",
+      error: prismaError.message || "Failed to delete item. Please try again.",
     };
   }
 

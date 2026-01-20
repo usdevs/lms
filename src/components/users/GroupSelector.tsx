@@ -42,7 +42,7 @@ export function GroupSelector({
         const result = await createGroupIH({ ihName: newGroupName.trim() });
         setIsSubmitting(false);
 
-        if (result.success && result.data) {
+        if (result.success) {
             toast.success("Group created successfully");
             setNewGroupName("");
             setIsCreating(false);
@@ -50,7 +50,7 @@ export function GroupSelector({
             // Notify parent to add new group to the list and auto-select it
             onGroupCreated?.(result.data, true);
         } else {
-            toast.error(result.error || "Failed to create group");
+            toast.error(result.error);
         }
     };
 

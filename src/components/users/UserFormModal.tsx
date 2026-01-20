@@ -72,6 +72,7 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess }
     }), [user, initialGroupIds]);
 
     const form = useForm<z.infer<typeof UpdateUserSchema>>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(mode === "edit" ? UpdateUserSchema : CreateUserWithGroupsSchema) as any,
         defaultValues,
     });
