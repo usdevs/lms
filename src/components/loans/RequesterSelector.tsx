@@ -161,6 +161,7 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                                             onChange(req.userId);
                                             setOpen(false);
                                         }}
+                                        className="font-normal"
                                     >
                                         <Check
                                             className={cn(
@@ -175,10 +176,13 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                         </CommandGroup>
                         <CommandSeparator />
                         <CommandGroup>
-                            <CommandItem onSelect={() => {
-                                onChange("new");
-                                setOpen(false);
-                            }}>
+                            <CommandItem 
+                                onSelect={() => {
+                                    onChange("new");
+                                    setOpen(false);
+                                }}
+                                className="font-normal"
+                            >
                                 <Plus className="mr-2 h-4 w-4" /> Create New Requester
                             </CommandItem>
                         </CommandGroup>

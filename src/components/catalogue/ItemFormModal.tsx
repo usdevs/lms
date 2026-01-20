@@ -16,15 +16,9 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createItem, updateItem, uploadItemImage } from "@/lib/actions/item";
+import { createSloc } from "@/lib/actions/sloc";
 import { objectToFormData } from "@/lib/utils";
 import {
   EditItemClientSchema,
@@ -36,6 +30,8 @@ import type { Prisma } from "@prisma/client";
 import { IHView } from "@/lib/types/ih";
 import { SlocView } from "@/lib/types/slocs";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { SlocSelector, SlocSelectorValue, NewSlocDetails } from "./SlocSelector";
+import { IHSelector } from "./IHSelector";
 
 type ItemForEdit =
   Prisma.ItemGetPayload<{
@@ -82,6 +78,12 @@ export default function ItemFormModal({
   // Track the original image URL so we can delete it when replacing
   const originalImageUrl = item?.itemImage ?? null;
 
+  // Local state for slocs (to support inline creation)
+  const [localSlocs, setLocalSlocs] = useState(slocs);
+  // New SLOC creation state
+  const [newSlocDetails, setNewSlocDetails] = useState<NewSlocDetails>({ slocName: "" });
+  const [slocSelectorValue, setSlocSelectorValue] = useState<SlocSelectorValue>(item?.itemSloc ?? undefined);
+
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
   const setOpen = isControlled ? controlledOnOpenChange || (() => {}) : setInternalOpen;
@@ -118,6 +120,25 @@ export default function ItemFormModal({
   async function onSubmit(values: Record<string, unknown>) {
     setIsSubmitting(true);
 
+    // Handle new SLOC creation if needed
+    let finalSlocId = values.itemSloc as string;
+    if (slocSelectorValue === "new") {
+      if (!newSlocDetails.slocName.trim()) {
+        toast.error("Please enter a location name");
+        setIsSubmitting(false);
+        return;
+      }
+      const slocResult = await createSloc({ slocName: newSlocDetails.slocName.trim() });
+      if (!slocResult.success) {
+        toast.error(slocResult.error || "Failed to create location");
+        setIsSubmitting(false);
+        return;
+      }
+      finalSlocId = slocResult.data.slocId;
+      // Add to local slocs for future use
+      setLocalSlocs(prev => [...prev, slocResult.data]);
+    }
+
     let photoUrl: string | null = null;
     
     // Upload new image if selected
@@ -141,6 +162,7 @@ export default function ItemFormModal({
     // Build final values
     const finalValues: Record<string, unknown> = {
       ...values,
+      itemSloc: finalSlocId,
       // Set itemImage: if we have a new photo use it, if deleting use empty string to signal clear
       itemImage: photoUrl ?? (shouldDeleteOldImage ? "" : undefined),
     };
@@ -165,6 +187,9 @@ export default function ItemFormModal({
       toast.success(
         `Item ${mode === "edit" ? "updated" : "created"} successfully!`,
       );
+      // Reset SLOC creation state
+      setNewSlocDetails({ slocName: "" });
+      setSlocSelectorValue(undefined);
       setOpen(false);
       onSuccess?.();
       return;
@@ -198,6 +223,24 @@ export default function ItemFormModal({
       setSelectedFile(null);
       setPreviewUrl(item?.itemImage ?? null);
       setShouldDeleteOldImage(false);
+      setLocalSlocs(slocs);
+      setNewSlocDetails({ slocName: "" });
+      setSlocSelectorValue(item?.itemSloc ?? undefined);
+    }
+  };
+
+  // Handle SLOC selector change
+  const handleSlocChange = (val: SlocSelectorValue) => {
+    setSlocSelectorValue(val);
+    if (val && val !== "new") {
+      form.setValue("itemSloc", val);
+      form.clearErrors("itemSloc");
+    } else if (val === "new") {
+      // Set placeholder to pass validation - will be replaced with actual ID on submit
+      form.setValue("itemSloc", "__new__");
+      form.clearErrors("itemSloc");
+    } else {
+      form.setValue("itemSloc", "");
     }
   };
 
@@ -223,7 +266,7 @@ export default function ItemFormModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       {!trigger && <DialogTrigger asChild>{defaultTrigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
@@ -296,57 +339,41 @@ export default function ItemFormModal({
                 <FormField
                   control={form.control}
                   name="itemSloc"
-                  render={({ field }) => (
+                  render={() => (
                     <FormItem>
-                      <FormLabel htmlFor="itemSloc">Storage Location *</FormLabel>
+                      <FormLabel>Storage Location *</FormLabel>
                       <FormControl>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger id="itemSloc">
-                            <SelectValue placeholder="Select location" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {slocs.map((sloc) => (
-                              <SelectItem
-                                key={sloc.slocId}
-                                value={sloc.slocId}
-                              >
-                                {sloc.slocName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SlocSelector
+                          slocs={localSlocs}
+                          value={slocSelectorValue}
+                          onChange={handleSlocChange}
+                          onNewDetailsChange={setNewSlocDetails}
+                          errors={{
+                            sloc: form.formState.errors.itemSloc?.message,
+                          }}
+                        />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
+
                 <FormField
                   control={form.control}
                   name="itemIh"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel htmlFor="itemIh">Inventory Holder *</FormLabel>
+                      <FormLabel>Inventory Holder *</FormLabel>
                       <FormControl>
-                        <Select
+                        <IHSelector
+                          ihs={ihs}
                           value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger id="itemIh">
-                            <SelectValue placeholder="Select holder" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ihs.map((ih) => (
-                              <SelectItem key={ih.ihId} value={ih.ihId}>
-                                {ih.ihName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(val) => {
+                            field.onChange(val);
+                            if (val) form.clearErrors("itemIh");
+                          }}
+                          error={form.formState.errors.itemIh?.message}
+                        />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />

@@ -67,7 +67,7 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess }
         lastName: user?.lastName ?? "",
         telegramHandle: user?.telegramHandle ?? "",
         nusnet: user?.nusnetId ?? "",
-        role: user?.role ?? UserRole.REQUESTER,
+        role: user?.role ?? UserRole.IH,
         groupIds: initialGroupIds,
     }), [user, initialGroupIds]);
 
