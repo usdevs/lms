@@ -23,10 +23,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { returnItem, approveLoan, rejectLoan, deleteLoan } from "@/lib/actions/loan";
 import {
     AlertDialog,
-    AlertDialogAction,
     AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
@@ -58,7 +58,9 @@ export function LoansTable({ data, items }: LoansTableProps) {
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingRefNo, setDeletingRefNo] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleReturnItem = (detailId: number) => {
     startTransition(async () => {
@@ -106,17 +108,18 @@ export function LoansTable({ data, items }: LoansTableProps) {
     });
   };
 
-  const handleDelete = (refNo: number) => {
-    setDeletingRefNo(refNo);
-    startTransition(async () => {
-      const result = await deleteLoan(refNo);
+  const handleDelete = async (refNo: number) => {
+    setIsDeleting(true);
+    const result = await deleteLoan(refNo);
+    setIsDeleting(false);
+
+    if (result.success) {
+      setDeleteDialogOpen(false);
       setDeletingRefNo(null);
-      if (result.success) {
-        toast.success("Loan deleted successfully");
-      } else {
-        toast.error("Delete failed: " + result.error);
-      }
-    });
+      toast.success("Loan deleted successfully");
+    } else {
+      toast.error("Delete failed: " + result.error);
+    }
   };
 
   const filteredData = data.filter(loan => {
@@ -218,7 +221,15 @@ export function LoansTable({ data, items }: LoansTableProps) {
                           
                           <TooltipProvider>
                             <Tooltip>
-                              <AlertDialog>
+                              <AlertDialog 
+                                open={deleteDialogOpen && deletingRefNo === loan.refNo} 
+                                onOpenChange={(open) => {
+                                  if (!isDeleting) {
+                                    setDeleteDialogOpen(open);
+                                    if (open) setDeletingRefNo(loan.refNo);
+                                  }
+                                }}
+                              >
                                 <TooltipTrigger asChild>
                                   <AlertDialogTrigger asChild>
                                     <Button
@@ -238,14 +249,21 @@ export function LoansTable({ data, items }: LoansTableProps) {
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
+                                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                                    <Button
                                       onClick={() => handleDelete(loan.refNo)}
+                                      disabled={isDeleting}
                                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      disabled={isPending && deletingRefNo === loan.refNo}
                                     >
-                                      {isPending && deletingRefNo === loan.refNo ? "Deleting..." : "Delete"}
-                                    </AlertDialogAction>
+                                      {isDeleting ? (
+                                        <div className="flex items-center gap-2">
+                                          <Spinner className="size-4" />
+                                          <span>Deleting...</span>
+                                        </div>
+                                      ) : (
+                                        "Delete"
+                                      )}
+                                    </Button>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>

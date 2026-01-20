@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 
@@ -14,9 +14,9 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import {
     AlertDialog,
-    AlertDialogAction,
     AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
@@ -48,21 +48,23 @@ const roleColors: Record<string, string> = {
 };
 
 export function UsersTable({ users, groups, onRefresh }: UsersTableProps) {
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
-    const [isPending, startTransition] = useTransition();
+    const [isDeleting, setIsDeleting] = useState(false);
 
-    const handleDelete = (userId: number) => {
-        setDeletingId(userId);
-        startTransition(async () => {
-            const result = await deleteUser(userId);
+    const handleDelete = async (userId: number) => {
+        setIsDeleting(true);
+        const result = await deleteUser(userId);
+        setIsDeleting(false);
+
+        if (result.success) {
+            setDeleteDialogOpen(false);
             setDeletingId(null);
-            if (result.success) {
-                toast.success("User deleted successfully");
-                onRefresh?.();
-            } else {
-                toast.error(result.error || "Failed to delete user");
-            }
-        });
+            toast.success("User deleted successfully");
+            onRefresh?.();
+        } else {
+            toast.error(result.error || "Failed to delete user");
+        }
     };
 
     const getFullName = (user: UserWithDetails) => {
@@ -179,7 +181,15 @@ export function UsersTable({ users, groups, onRefresh }: UsersTableProps) {
                                     />
                                     <TooltipProvider>
                                         <Tooltip>
-                                            <AlertDialog>
+                                            <AlertDialog
+                                                open={deleteDialogOpen && deletingId === user.userId}
+                                                onOpenChange={(open) => {
+                                                    if (!isDeleting) {
+                                                        setDeleteDialogOpen(open);
+                                                        if (open) setDeletingId(user.userId);
+                                                    }
+                                                }}
+                                            >
                                                 <TooltipTrigger asChild>
                                                     <AlertDialogTrigger asChild>
                                                         <span tabIndex={canDelete(user) ? -1 : 0}>
@@ -204,18 +214,21 @@ export function UsersTable({ users, groups, onRefresh }: UsersTableProps) {
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction
+                                                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                                                        <Button
                                                             onClick={() => handleDelete(user.userId)}
+                                                            disabled={isDeleting}
                                                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                            disabled={
-                                                                isPending && deletingId === user.userId
-                                                            }
                                                         >
-                                                            {isPending && deletingId === user.userId
-                                                                ? "Deleting..."
-                                                                : "Delete"}
-                                                        </AlertDialogAction>
+                                                            {isDeleting ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <Spinner className="size-4" />
+                                                                    <span>Deleting...</span>
+                                                                </div>
+                                                            ) : (
+                                                                "Delete"
+                                                            )}
+                                                        </Button>
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
