@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, RotateCcw, X, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";

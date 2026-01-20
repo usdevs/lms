@@ -8,9 +8,9 @@ export type Paginated<T> = {
     }
   }
 
-export type PaginationParams<T extends object = {}> = {
-page: number;
-limit: number;
-} & T;
+export type PaginationParams<
+  T extends Record<string, unknown> = Record<string, never>
+> = {page: number; limit: number } & T;
+
   
   

@@ -2,20 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { IHType, UserRole } from "@prisma/client";
+import { IH, IHType, User, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateUserWithGroupsSchema, UpdateUserSchema, CreateGroupIHSchema } from "@/lib/schema/user";
 
-export type ActionResult = {
-    success: boolean;
-    error?: string;
-    data?: any;
-};
+// Discriminated union types for type-safe action results
+type ActionSuccess<T = void> = T extends void
+    ? { success: true }
+    : { success: true; data: T };
+
+type ActionError = { success: false; error: string };
+
+export type ActionResult<T = void> = ActionSuccess<T> | ActionError;
 
 /**
  * Create a new user with optional group memberships
  */
-export async function createUser(data: z.infer<typeof CreateUserWithGroupsSchema>): Promise<ActionResult> {
+export async function createUser(data: z.infer<typeof CreateUserWithGroupsSchema>): Promise<ActionResult<User>> {
     const parseResult = CreateUserWithGroupsSchema.safeParse(data);
     if (!parseResult.success) {
         return {
@@ -78,9 +81,10 @@ export async function createUser(data: z.infer<typeof CreateUserWithGroupsSchema
 
         revalidatePath("/users");
         return { success: true, data: user };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to create user:", e);
-        return { success: false, error: e.message || "Failed to create user" };
+        const message = e instanceof Error ? e.message : "Failed to create user";
+        return { success: false, error: message };
     }
 }
 
@@ -178,9 +182,10 @@ export async function updateUser(data: z.infer<typeof UpdateUserSchema>): Promis
 
         revalidatePath("/users");
         return { success: true };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to update user:", e);
-        return { success: false, error: e.message || "Failed to update user" };
+        const message = e instanceof Error ? e.message : "Failed to update user";
+        return { success: false, error: message };
     }
 }
 
@@ -253,9 +258,10 @@ export async function deleteUser(userId: number): Promise<ActionResult> {
         revalidatePath("/users");
         revalidatePath("/catalogue");
         return { success: true };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to delete user:", e);
-        return { success: false, error: e.message || "Failed to delete user" };
+        const message = e instanceof Error ? e.message : "Failed to delete user";
+        return { success: false, error: message };
     }
 }
 /**
@@ -286,9 +292,10 @@ export async function addUserToGroup(userId: number, ihId: string, isPrimary: bo
 
         revalidatePath("/users");
         return { success: true };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to add user to group:", e);
-        return { success: false, error: e.message || "Failed to add user to group" };
+        const message = e instanceof Error ? e.message : "Failed to add user to group";
+        return { success: false, error: message };
     }
 }
 
@@ -303,9 +310,10 @@ export async function removeUserFromGroup(userId: number, ihId: string): Promise
 
         revalidatePath("/users");
         return { success: true };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to remove user from group:", e);
-        return { success: false, error: e.message || "Failed to remove user from group" };
+        const message = e instanceof Error ? e.message : "Failed to remove user from group";
+        return { success: false, error: message };
     }
 }
 
@@ -339,16 +347,17 @@ export async function setPrimaryPOC(ihId: string, userId: number): Promise<Actio
 
         revalidatePath("/users");
         return { success: true };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to set primary POC:", e);
-        return { success: false, error: e.message || "Failed to set primary POC" };
+        const message = e instanceof Error ? e.message : "Failed to set primary POC";
+        return { success: false, error: message };
     }
 }
 
 /**
  * Create a new GROUP IH inline
  */
-export async function createGroupIH(data: z.infer<typeof CreateGroupIHSchema>): Promise<ActionResult> {
+export async function createGroupIH(data: z.infer<typeof CreateGroupIHSchema>): Promise<ActionResult<IH>> {
     const parseResult = CreateGroupIHSchema.safeParse(data);
     if (!parseResult.success) {
         return { success: false, error: "Validation failed" };
@@ -379,9 +388,10 @@ export async function createGroupIH(data: z.infer<typeof CreateGroupIHSchema>): 
 
         revalidatePath("/users");
         return { success: true, data: newIH };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to create group:", e);
-        return { success: false, error: e.message || "Failed to create group" };
+        const message = e instanceof Error ? e.message : "Failed to create group";
+        return { success: false, error: message };
     }
 }
 

@@ -95,6 +95,7 @@ export function LoanFormModal({
     }, [mode, loan]);
 
     const form = useForm<z.infer<typeof CreateLoanSchema>>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(mode === "edit" ? EditLoanSchema : CreateLoanSchema) as any,
         defaultValues,
     });
@@ -176,7 +177,7 @@ export function LoanFormModal({
     };
 
     // Requester handlers (only for add mode)
-    const handleRequesterChange = (val: RequesterSelectorValue, details?: NewUserDetails) => {
+    const handleRequesterChange = (val: RequesterSelectorValue) => {
         if (val === "new") {
             form.setValue("requesterId", undefined);
             form.setValue("newRequester", { 
@@ -203,10 +204,11 @@ export function LoanFormModal({
             ...(details.role && { role: details.role }),
         });
         if (details.firstName) {
-            form.clearErrors("newRequester.firstName" as any);
+            // Clear nested field errors - path casting needed for nested fields
+            form.clearErrors("newRequester" as "requesterId");
         }
         if (details.telegramHandle) {
-            form.clearErrors("newRequester.telegramHandle" as any);
+            form.clearErrors("newRequester" as "requesterId");
         }
         form.clearErrors("requesterId");
     };
@@ -296,8 +298,8 @@ export function LoanFormModal({
                                                     onNewDetailsChange={handleNewRequesterDetailsChange}
                                                     errors={{
                                                         requester: form.formState.errors.requesterId?.message || form.formState.errors.newRequester?.message,
-                                                        firstName: (form.formState.errors.newRequester as any)?.firstName?.message,
-                                                        telegramHandle: (form.formState.errors.newRequester as any)?.telegramHandle?.message,
+                                                        firstName: (form.formState.errors.newRequester as { firstName?: { message?: string } } | undefined)?.firstName?.message,
+                                                        telegramHandle: (form.formState.errors.newRequester as { telegramHandle?: { message?: string } } | undefined)?.telegramHandle?.message,
                                                     }}
                                                 />
                                             </FormControl>

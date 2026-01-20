@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { LoanItemStatus, LoanRequestStatus, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateLoanSchema } from "@/lib/schema/loan";
@@ -119,9 +119,10 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
         revalidatePath("/loans");
         return { success: true };
 
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to create loan:", e);
-        return { success: false, error: e.message || "Failed to create loan" };
+        const message = e instanceof Error ? e.message : "Failed to create loan";
+        return { success: false, error: message };
     }
 }
 
@@ -162,8 +163,9 @@ export async function approveLoan(refNo: number) {
         revalidatePath("/loans");
         revalidatePath("/catalogue");
         return { success: true };
-    } catch (e: any) {
-        return { success: false, error: e.message };
+    } catch (e) {
+        const message = e instanceof Error ? e.message : "Failed to approve loan";
+        return { success: false, error: message };
     }
 }
 
@@ -188,8 +190,9 @@ export async function rejectLoan(refNo: number) {
 
         revalidatePath("/loans");
         return { success: true };
-    } catch (e: any) {
-        return { success: false, error: e.message };
+    } catch (e) {
+        const message = e instanceof Error ? e.message : "Failed to reject loan";
+        return { success: false, error: message };
     }
 }
 
@@ -269,9 +272,10 @@ export async function updateLoan(refNo: number, data: {
 
         revalidatePath("/loans");
         return { success: true };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to update loan:", e);
-        return { success: false, error: e.message || "Failed to update loan" };
+        const message = e instanceof Error ? e.message : "Failed to update loan";
+        return { success: false, error: message };
     }
 }
 
@@ -304,9 +308,10 @@ export async function deleteLoan(refNo: number) {
 
         revalidatePath("/loans");
         return { success: true };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Failed to delete loan:", e);
-        return { success: false, error: e.message || "Failed to delete loan" };
+        const message = e instanceof Error ? e.message : "Failed to delete loan";
+        return { success: false, error: message };
     }
 }
 
@@ -375,9 +380,10 @@ export async function returnItem(loanDetailId: number) {
         revalidatePath("/loans");
         revalidatePath("/catalogue");
         return { success: true, status: result.newStatus };
-    } catch (e: any) {
+    } catch (e) {
         console.error("Return item error:", e);
-        return { success: false, error: e.message };
+        const message = e instanceof Error ? e.message : "Failed to return item";
+        return { success: false, error: message };
     }
 }
 

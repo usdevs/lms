@@ -30,7 +30,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
 import { removeUserFromGroup, setPrimaryPOC, addUserToGroup } from "@/lib/actions/user";
 import { UserWithDetails, GroupIHWithMembers } from "@/lib/types/user";
 
