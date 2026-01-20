@@ -365,9 +365,9 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                 <div className="flex items-baseline gap-1.5 mt-auto">
                   <span className={cn(
                     "text-xl font-semibold",
-                    item.netQty > 0 ? "text-green-600" : "text-destructive"
+                    item.availableQty > 0 ? "text-green-600" : "text-destructive"
                   )}>
-                    {item.netQty}
+                    {item.availableQty}
                   </span>
                   <span className="text-gray-400 text-sm">/</span>
                   <span className="text-gray-600 text-sm">{item.totalQty}</span>

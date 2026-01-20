@@ -62,6 +62,22 @@ export function LoansTable({ data, items }: LoansTableProps) {
   const [deletingRefNo, setDeletingRefNo] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Helper to check if a loan item has insufficient stock for approval
+  const getItemAvailability = (itemId: number, requestedQty: number) => {
+    const itemInfo = items.find(i => i.itemId === itemId);
+    if (!itemInfo) return { available: 0, sufficient: false };
+    const available = itemInfo.availableQty ?? itemInfo.itemQty;
+    return { available, sufficient: requestedQty <= available };
+  };
+
+  // Check if all items in a loan have sufficient stock
+  const canApproveLoan = (loan: LoanWithDetails) => {
+    return loan.loanDetails.every(detail => {
+      const { sufficient } = getItemAvailability(detail.itemId, detail.loanQty);
+      return sufficient;
+    });
+  };
+
   const handleReturnItem = (detailId: number) => {
     startTransition(async () => {
       const result = await returnItem(detailId);
@@ -380,15 +396,27 @@ export function LoansTable({ data, items }: LoansTableProps) {
 
             {/* Approval Actions */}
             {selectedLoan?.loanRequestStatus === LoanRequestStatus.PENDING && (
-              <div className="flex gap-2 p-4 bg-blue-50/50 border border-blue-100 rounded-md items-center justify-between">
-                <div className="text-sm text-blue-800">
-                  This request is <strong>Pending Approval</strong>. Approving will deduct stock.
+              canApproveLoan(selectedLoan) ? (
+                <div className="flex gap-2 p-4 bg-blue-50/50 border border-blue-100 rounded-md items-center justify-between">
+                  <div className="text-sm text-blue-800">
+                    This request is <strong>Pending Approval</strong>. Approving will mark items as on loan.
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="destructive" size="sm" onClick={() => handleReject(selectedLoan.refNo)} disabled={isPending}>Reject</Button>
+                    <Button className="bg-blue-600 hover:bg-blue-700" size="sm" onClick={() => handleApprove(selectedLoan.refNo)} disabled={isPending}>Approve Loan</Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="destructive" size="sm" onClick={() => handleReject(selectedLoan.refNo)} disabled={isPending}>Reject</Button>
-                  <Button className="bg-blue-600 hover:bg-blue-700" size="sm" onClick={() => handleApprove(selectedLoan.refNo)} disabled={isPending}>Approve Loan</Button>
+              ) : (
+                <div className="flex gap-2 p-4 bg-red-50 border border-red-200 rounded-md items-center justify-between">
+                  <div className="text-sm text-red-800">
+                    <strong>Cannot approve:</strong> Some items have insufficient available stock. See details below.
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="destructive" size="sm" onClick={() => handleReject(selectedLoan.refNo)} disabled={isPending}>Reject</Button>
+                    <Button className="bg-gray-400 cursor-not-allowed" size="sm" disabled>Approve Loan</Button>
+                  </div>
                 </div>
-              </div>
+              )
             )}
 
             <div className="border rounded-md">
@@ -396,38 +424,54 @@ export function LoansTable({ data, items }: LoansTableProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Item</TableHead>
-                    <TableHead>Qty</TableHead>
+                    <TableHead>Requested</TableHead>
+                    {selectedLoan?.loanRequestStatus === LoanRequestStatus.PENDING && (
+                      <TableHead>Available</TableHead>
+                    )}
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedLoan?.loanDetails.map((detail) => (
-                    <TableRow key={detail.loanDetailId}>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{detail.item.itemDesc}</span>
-                          <span className="text-xs text-muted-foreground">ID: {detail.itemId}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{detail.loanQty}</TableCell>
-                      <TableCell>
-                        <ItemStatusBadge status={detail.loanItemStatus} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {selectedLoan.loanRequestStatus === LoanRequestStatus.ONGOING && detail.loanItemStatus === LoanItemStatus.ON_LOAN && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReturnItem(detail.loanDetailId)}
-                            disabled={isPending}
-                          >
-                            {isPending ? "..." : "Return"}
-                          </Button>
+                  {selectedLoan?.loanDetails.map((detail) => {
+                    const { available, sufficient } = getItemAvailability(detail.itemId, detail.loanQty);
+                    const showAvailability = selectedLoan.loanRequestStatus === LoanRequestStatus.PENDING;
+                    
+                    return (
+                      <TableRow key={detail.loanDetailId} className={showAvailability && !sufficient ? "bg-red-50" : ""}>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{detail.item.itemDesc}</span>
+                            <span className="text-xs text-muted-foreground">ID: {detail.itemId}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{detail.loanQty}</TableCell>
+                        {showAvailability && (
+                          <TableCell>
+                            <span className={sufficient ? "text-green-600" : "text-red-600 font-medium"}>
+                              {available}
+                              {!sufficient && " (insufficient)"}
+                            </span>
+                          </TableCell>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        <TableCell>
+                          <ItemStatusBadge status={detail.loanItemStatus} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {selectedLoan.loanRequestStatus === LoanRequestStatus.ONGOING && detail.loanItemStatus === LoanItemStatus.ON_LOAN && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleReturnItem(detail.loanDetailId)}
+                              disabled={isPending}
+                            >
+                              {isPending ? "..." : "Return"}
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

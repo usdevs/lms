@@ -91,24 +91,10 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                     throw new Error(`${dbItem.itemDesc} is marked as unloanable and cannot be loaned out`);
                 }
 
-                // Prevent overbooking: check pending requests
-                const pendingAgg = await tx.loanItemDetail.aggregate({
-                    where: {
-                        itemId: loanItem.itemId,
-                        loanItemStatus: LoanItemStatus.PENDING
-                    },
-                    _sum: {
-                        loanQty: true
-                    }
-                });
-
-                const currentPending = pendingAgg._sum.loanQty || 0;
-                const netAvailable = dbItem.itemQty - currentPending;
-
-                if (loanItem.loanQty > netAvailable) {
-                    throw new Error(`Insufficient allocatable stock for ${dbItem.itemDesc}. Available: ${dbItem.itemQty}, Pending: ${currentPending}, Net: ${netAvailable}. Requested: ${loanItem.loanQty}`);
+                // Check if requested qty exceeds available stock
+                if (loanItem.loanQty > dbItem.itemQty) {
+                    throw new Error(`Insufficient stock for ${dbItem.itemDesc}. Available: ${dbItem.itemQty}, Requested: ${loanItem.loanQty}`);
                 }
-
 
                 await tx.loanItemDetail.create({
                     data: {
@@ -144,16 +130,30 @@ export async function approveLoan(refNo: number) {
             if (!request) throw new Error("Loan request not found");
             if (request.loanRequestStatus !== LoanRequestStatus.PENDING) throw new Error("Loan is not pending");
 
-            // Deduct stock for each item
+            // Check and process each item
             for (const detail of request.loanDetails) {
-                if (detail.item.itemQty < detail.loanQty) {
-                    throw new Error(`Insufficient stock for ${detail.item.itemDesc}. Available: ${detail.item.itemQty}, Requested: ${detail.loanQty}`);
+                // Calculate current on-loan quantity for this item
+                const onLoanAgg = await tx.loanItemDetail.aggregate({
+                    where: {
+                        itemId: detail.itemId,
+                        loanItemStatus: LoanItemStatus.ON_LOAN
+                    },
+                    _sum: { loanQty: true }
+                });
+                const currentOnLoan = onLoanAgg._sum.loanQty || 0;
+                const availableQty = detail.item.itemQty - currentOnLoan;
+
+                if (detail.loanQty > availableQty) {
+                    throw new Error(`Insufficient available stock for ${detail.item.itemDesc}. Available: ${availableQty}, Requested: ${detail.loanQty}`);
                 }
 
-                await tx.item.update({
-                    where: { itemId: detail.itemId },
-                    data: { itemQty: { decrement: detail.loanQty } }
-                });
+                // Only decrease itemQty for expendable items (they're consumed)
+                if (detail.item.itemExpendable) {
+                    await tx.item.update({
+                        where: { itemId: detail.itemId },
+                        data: { itemQty: { decrement: detail.loanQty } }
+                    });
+                }
 
                 await tx.loanItemDetail.update({
                     where: { loanDetailId: detail.loanDetailId },
@@ -254,21 +254,9 @@ export async function updateLoan(refNo: number, data: {
                     throw new Error(`${dbItem.itemDesc} is marked as unloanable and cannot be loaned out`);
                 }
 
-                // Check available stock (excluding this loan's previous pending items)
-                const pendingAgg = await tx.loanItemDetail.aggregate({
-                    where: {
-                        itemId: loanItem.itemId,
-                        loanItemStatus: LoanItemStatus.PENDING,
-                        refNo: { not: refNo }
-                    },
-                    _sum: { loanQty: true }
-                });
-
-                const currentPending = pendingAgg._sum.loanQty || 0;
-                const netAvailable = dbItem.itemQty - currentPending;
-
-                if (loanItem.loanQty > netAvailable) {
-                    throw new Error(`Insufficient allocatable stock for ${dbItem.itemDesc}. Available: ${dbItem.itemQty}, Pending: ${currentPending}, Net: ${netAvailable}. Requested: ${loanItem.loanQty}`);
+                // Check if requested qty exceeds available stock
+                if (loanItem.loanQty > dbItem.itemQty) {
+                    throw new Error(`Insufficient stock for ${dbItem.itemDesc}. Available: ${dbItem.itemQty}, Requested: ${loanItem.loanQty}`);
                 }
 
                 await tx.loanItemDetail.create({
@@ -356,14 +344,9 @@ export async function returnItem(loanDetailId: number) {
                 data: { loanItemStatus: newStatus }
             });
 
-            // Restore stock only if item is NOT expendable
-            // Expendable items are consumed and should not be returned to inventory
-            if (!detail.item.itemExpendable) {
-                await tx.item.update({
-                    where: { itemId: detail.itemId },
-                    data: { itemQty: { increment: detail.loanQty } }
-                });
-            }
+            // Note: For normal items, itemQty is not changed on return
+            // because we track availability via ON_LOAN status, not by decrementing itemQty
+            // Expendable items already had their itemQty decremented on approval and don't get restored
 
             // Mark loan as COMPLETED if all items returned
             const siblings = await tx.loanItemDetail.findMany({

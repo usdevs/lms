@@ -6,7 +6,7 @@ export type ItemView = Awaited<ReturnType<typeof getItems>>[number];
 // Enriched item view with loan calculations
 export type EnrichedItemView = ItemView & {
   totalQty: number;
-  netQty: number;
+  availableQty: number;
 };
 
 // Type for paginated items API response

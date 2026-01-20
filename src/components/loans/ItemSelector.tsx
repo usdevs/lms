@@ -21,9 +21,9 @@ import {
 export type ItemOption = {
     itemId: number;
     itemDesc: string;
-    itemQty: number; // Remaining stock on shelf (for info)
-    totalQty?: number; // Total physical assets
-    netQty?: number; // Available - Pending (Effective available)
+    itemQty: number; // Current stock on shelf
+    totalQty?: number; // Total physical assets (including on loan)
+    availableQty?: number; // Available for loan (same as itemQty)
     itemUnloanable?: boolean; // If true, item cannot be loaned
 };
 
@@ -75,23 +75,22 @@ export function ItemSelector({ availableItems, selectedItemIds, onAddItem }: Ite
                                 <CommandEmpty>No item found.</CommandEmpty>
                                 <CommandGroup>
                                     {filteredItems.map((item) => {
-                                        // Use netQty if available, else fallback to itemQty
-                                        const effectiveStock = item.netQty ?? item.itemQty;
+                                        const totalStock = item.totalQty ?? item.itemQty;
 
                                         return (
                                             <CommandItem
                                                 key={item.itemId}
                                                 value={item.itemDesc + " " + item.itemId}
                                                 onSelect={() => handleSelect(item.itemId)}
-                                                disabled={effectiveStock <= 0}
-                                                className={cn(effectiveStock <= 0 && "opacity-50")}
+                                                disabled={totalStock <= 0}
+                                                className={cn(totalStock <= 0 && "opacity-50")}
                                             >
                                                 <div className="flex flex-col w-full">
                                                     <span className="font-medium">{item.itemDesc}</span>
                                                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
                                                         <span>SN: {item.itemId}</span>
-                                                        <span className={cn(effectiveStock > 0 ? "text-green-600 font-bold" : "text-destructive")}>
-                                                            Avail: {effectiveStock}
+                                                        <span className={cn(totalStock > 0 ? "text-green-600 font-bold" : "text-destructive")}>
+                                                            Total: {totalStock}
                                                         </span>
                                                     </div>
                                                 </div>

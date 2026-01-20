@@ -108,15 +108,11 @@ export function LoanFormModal({
 
     const selectedItems = form.watch("items");
 
-    // Check if any item exceeds available stock
+    // Check if any item exceeds total stock (users can request up to total, availability checked at approval)
     const hasOverLimitItems = selectedItems.some(item => {
         const itemInfo = items.find(i => i.itemId === item.itemId);
-        // For editing, add back the current loan's qty to available
-        const currentLoanQty = mode === "edit" && loan 
-            ? loan.loanDetails.find(d => d.itemId === item.itemId)?.loanQty || 0 
-            : 0;
-        const availableQty = (itemInfo?.netQty ?? itemInfo?.itemQty ?? 0) + currentLoanQty;
-        return item.loanQty > availableQty;
+        const totalQty = itemInfo?.totalQty ?? itemInfo?.itemQty ?? 0;
+        return item.loanQty > totalQty;
     });
 
     const onSubmit = (data: z.infer<typeof CreateLoanSchema>) => {
@@ -243,13 +239,10 @@ export function LoanFormModal({
 
     const triggerElement = trigger || defaultTrigger;
 
-    // Calculate available qty for display
-    const getAvailableQty = (itemId: number) => {
+    // Calculate total qty for display (users can request up to total)
+    const getTotalQty = (itemId: number) => {
         const itemInfo = items.find(i => i.itemId === itemId);
-        const currentLoanQty = mode === "edit" && loan 
-            ? loan.loanDetails.find(d => d.itemId === itemId)?.loanQty || 0 
-            : 0;
-        return (itemInfo?.netQty ?? itemInfo?.itemQty ?? 0) + currentLoanQty;
+        return itemInfo?.totalQty ?? itemInfo?.itemQty ?? 0;
     };
 
     return (
@@ -460,17 +453,17 @@ export function LoanFormModal({
                             <div className="mt-4 space-y-2">
                                 {selectedItems.map((item, idx) => {
                                     const itemInfo = items.find(i => i.itemId === item.itemId);
-                                    const availableQty = getAvailableQty(item.itemId);
-                                    const isOverLimit = item.loanQty > availableQty;
+                                    const totalQty = getTotalQty(item.itemId);
+                                    const isOverLimit = item.loanQty > totalQty;
                                     return (
                                         <div key={idx} className="flex justify-between items-center p-3 bg-background border rounded shadow-sm">
                                             <div className="flex-1">
                                                 <div className="font-medium text-sm">{itemInfo?.itemDesc || "Unknown Item"}</div>
                                                 <div className="text-xs text-muted-foreground">
                                                     {isOverLimit ? (
-                                                        <span className="text-destructive">Exceeds available ({availableQty})</span>
+                                                        <span className="text-destructive">Exceeds total ({totalQty})</span>
                                                     ) : (
-                                                        <>Available: {availableQty}</>
+                                                        <>Total: {totalQty}</>
                                                     )}
                                                 </div>
                                             </div>

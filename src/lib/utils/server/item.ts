@@ -33,34 +33,35 @@ export const getItems = async () => {
     },
   });
 
-  // Calculate pending and on-loan counts
-  const pendingCounts = await prisma.loanItemDetail.groupBy({
-    by: ['itemId'],
-    where: { loanItemStatus: LoanItemStatus.PENDING },
-    _sum: { loanQty: true }
-  });
-
+  // Calculate on-loan counts
   const onLoanCounts = await prisma.loanItemDetail.groupBy({
     by: ['itemId'],
     where: { loanItemStatus: LoanItemStatus.ON_LOAN },
     _sum: { loanQty: true }
   });
 
-  const pendingMap = new Map(pendingCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
   const onLoanMap = new Map(onLoanCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
 
-  // Enrich items with pending/onLoan counts
+  // Enrich items with availableQty and totalQty
+  // Normal items: itemQty is constant (total assets), availableQty = itemQty - onLoan
+  // Expendable items: itemQty decreases on approval (consumed), availableQty = itemQty (remaining stock)
   return items.map(item => {
     const onLoan = onLoanMap.get(item.itemId) || 0;
-    const pending = pendingMap.get(item.itemId) || 0;
 
-    const totalQty = item.itemQty + onLoan;
-    const netQty = Math.max(0, item.itemQty - pending);
-
-    return {
-      ...item,
-      totalQty,
-      netQty
-    };
+    if (item.itemExpendable) {
+      // Expendable: itemQty is what's left, onLoan shows what's "out" but will be consumed
+      return {
+        ...item,
+        totalQty: item.itemQty + onLoan,
+        availableQty: item.itemQty,
+      };
+    } else {
+      // Normal: itemQty is constant total, onLoan tracks what's out
+      return {
+        ...item,
+        totalQty: item.itemQty,
+        availableQty: item.itemQty - onLoan,
+      };
+    }
   });
 };
