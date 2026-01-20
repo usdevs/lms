@@ -29,7 +29,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
     } = parseResult.data;
 
     try {
-        await prisma.$transaction(async (tx) => {
+        const refNo = await prisma.$transaction(async (tx) => {
             // Resolve Requester (User)
             let finalReqId = requesterId;
 
@@ -119,10 +119,12 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                     }
                 });
             }
+
+            return loanRequest.refNo;
         });
 
         revalidatePath("/loans");
-        return { success: true };
+        return { success: true, refNo };
 
     } catch (e) {
         console.error("Failed to create loan:", e);

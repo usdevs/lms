@@ -7,4 +7,5 @@ export interface CreateLoanResult {
   success: boolean;
   error?: string;
   errors?: Record<string, string[]>;
+  refNo?: number;
 }

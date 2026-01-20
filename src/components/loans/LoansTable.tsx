@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { format } from "date-fns";
-import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search, Trash2 } from "lucide-react";
+import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search, Trash2, Package } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -70,11 +70,22 @@ export function LoansTable({ data, items }: LoansTableProps) {
         // Update local state with the actual status from server (RETURNED or RETURNED_LATE)
         if (selectedLoan) {
           const returnedStatus = result.status || LoanItemStatus.RETURNED;
+          const updatedDetails = selectedLoan.loanDetails.map(d =>
+            d.loanDetailId === detailId ? { ...d, loanItemStatus: returnedStatus } : d
+          );
+          
+          // Check if all items are now returned/rejected
+          const allReturned = updatedDetails.every(d => 
+            d.loanItemStatus === LoanItemStatus.RETURNED || 
+            d.loanItemStatus === LoanItemStatus.RETURNED_LATE || 
+            d.loanItemStatus === LoanItemStatus.REJECTED
+          );
+          
           setSelectedLoan({
             ...selectedLoan,
-            loanDetails: selectedLoan.loanDetails.map(d =>
-              d.loanDetailId === detailId ? { ...d, loanItemStatus: returnedStatus } : d
-            )
+            loanDetails: updatedDetails,
+            // Update loan status if all items returned
+            loanRequestStatus: allReturned ? LoanRequestStatus.COMPLETED : selectedLoan.loanRequestStatus
           });
         }
       } else {
@@ -88,7 +99,16 @@ export function LoansTable({ data, items }: LoansTableProps) {
       const result = await approveLoan(refNo);
       if (result.success) {
         toast.success("Loan approved and stock deducted");
-        setSelectedLoan(prev => prev ? { ...prev, loanRequestStatus: LoanRequestStatus.ONGOING } : null);
+        // Update local state - keep popup open with new status
+        setSelectedLoan(prev => prev ? { 
+          ...prev, 
+          loanRequestStatus: LoanRequestStatus.ONGOING,
+          // Also update all item statuses to ON_LOAN
+          loanDetails: prev.loanDetails.map(d => ({
+            ...d,
+            loanItemStatus: LoanItemStatus.ON_LOAN
+          }))
+        } : null);
       } else {
         toast.error("Approval failed: " + result.error);
       }
@@ -101,7 +121,16 @@ export function LoansTable({ data, items }: LoansTableProps) {
       const result = await rejectLoan(refNo);
       if (result.success) {
         toast.success("Loan rejected");
-        setSelectedLoan(prev => prev ? { ...prev, loanRequestStatus: LoanRequestStatus.REJECTED } : null);
+        // Update local state - keep popup open with new status
+        setSelectedLoan(prev => prev ? { 
+          ...prev, 
+          loanRequestStatus: LoanRequestStatus.REJECTED,
+          // Also update all item statuses to REJECTED
+          loanDetails: prev.loanDetails.map(d => ({
+            ...d,
+            loanItemStatus: LoanItemStatus.REJECTED
+          }))
+        } : null);
       } else {
         toast.error("Rejection failed: " + result.error);
       }
@@ -122,26 +151,39 @@ export function LoansTable({ data, items }: LoansTableProps) {
     }
   };
 
-  const filteredData = data.filter(loan => {
-    const requesterName = `${loan.requester.firstName}${loan.requester.lastName ? ` ${loan.requester.lastName}` : ''}`;
-    const matchesSearch =
-      requesterName.toLowerCase().includes(search.toLowerCase()) ||
-      (loan.requester.nusnetId && loan.requester.nusnetId.toLowerCase().includes(search.toLowerCase())) ||
-      loan.refNo.toString().includes(search);
+  const filteredData = useMemo(() => {
+    const searchLower = search.toLowerCase();
+    return data.filter(loan => {
+      const requesterName = `${loan.requester.firstName}${loan.requester.lastName ? ` ${loan.requester.lastName}` : ''}`;
+      
+      // Search by requester name, NUSNET, ref no
+      const matchesBasicSearch =
+        requesterName.toLowerCase().includes(searchLower) ||
+        (loan.requester.nusnetId && loan.requester.nusnetId.toLowerCase().includes(searchLower)) ||
+        loan.refNo.toString().includes(search);
+      
+      // Search by item name or item ID
+      const matchesItemSearch = loan.loanDetails.some(detail => 
+        detail.item.itemDesc.toLowerCase().includes(searchLower) ||
+        detail.itemId.toString().includes(search)
+      );
 
-    if (filterStatus === "ALL") return matchesSearch;
-    return matchesSearch && loan.loanRequestStatus === filterStatus;
-  });
+      const matchesSearch = matchesBasicSearch || matchesItemSearch;
+
+      if (filterStatus === "ALL") return matchesSearch;
+      return matchesSearch && loan.loanRequestStatus === filterStatus;
+    });
+  }, [data, search, filterStatus]);
 
   const statusOptions: FilterStatus[] = ["ALL", LoanRequestStatus.PENDING, LoanRequestStatus.ONGOING, LoanRequestStatus.COMPLETED, LoanRequestStatus.REJECTED];
 
   return (
     <>
       <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-        <div className="relative w-full max-w-[300px]">
+        <div className="relative w-full max-w-[350px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
-            placeholder="Search loans..."
+            placeholder="Search by requester, ref #, or item name..."
             className="pl-10 w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -170,9 +212,8 @@ export function LoansTable({ data, items }: LoansTableProps) {
             <TableRow>
               <TableHead>Ref No</TableHead>
               <TableHead>Requester</TableHead>
-              <TableHead>Organisation</TableHead>
-              <TableHead>Start Date</TableHead>
-              <TableHead>End Date</TableHead>
+              <TableHead>Items</TableHead>
+              <TableHead>Period</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -180,34 +221,54 @@ export function LoansTable({ data, items }: LoansTableProps) {
           <TableBody>
             {filteredData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   No loans found.
                 </TableCell>
               </TableRow>
             ) : (
               filteredData.map((loan) => (
-                <TableRow key={loan.refNo}>
+                <TableRow key={loan.refNo} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLoan(loan)}>
                   <TableCell className="font-medium">#{loan.refNo}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
                       <span>{loan.requester.firstName}{loan.requester.lastName ? ` ${loan.requester.lastName}` : ''}</span>
-                      {loan.requester.nusnetId && (
-                        <span className="text-xs text-muted-foreground">{loan.requester.nusnetId}</span>
+                      <span className="text-xs text-muted-foreground">@{loan.requester.telegramHandle}</span>
+                      {loan.organisation && (
+                        <span className="text-xs text-muted-foreground">{loan.organisation}</span>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{loan.organisation || "-"}</TableCell>
-                  <TableCell>{format(new Date(loan.loanDateStart), "dd MMM yyyy")}</TableCell>
-                  <TableCell>{format(new Date(loan.loanDateEnd), "dd MMM yyyy")}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      {loan.loanDetails.slice(0, 2).map((detail) => (
+                        <div key={detail.loanDetailId} className="flex items-center gap-1.5 text-xs">
+                          <Package className="h-3 w-3 text-muted-foreground" />
+                          <span className="truncate max-w-[150px]">{detail.item.itemDesc}</span>
+                          <span className="text-muted-foreground">x{detail.loanQty}</span>
+                        </div>
+                      ))}
+                      {loan.loanDetails.length > 2 && (
+                        <span className="text-xs text-muted-foreground">+{loan.loanDetails.length - 2} more</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col text-sm">
+                      <span>{format(new Date(loan.loanDateStart), "dd MMM")} - {format(new Date(loan.loanDateEnd), "dd MMM")}</span>
+                      {loan.loanRequestStatus === LoanRequestStatus.ONGOING && new Date() > new Date(loan.loanDateEnd) && (
+                        <span className="text-xs text-destructive font-medium">Overdue</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={loan.loanRequestStatus} />
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button size="icon" variant="ghost" onClick={() => setSelectedLoan(loan)}>
+                            <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedLoan(loan); }}>
                               <Eye className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
@@ -336,6 +397,7 @@ export function LoansTable({ data, items }: LoansTableProps) {
                   <TableRow>
                     <TableHead>Item</TableHead>
                     <TableHead>Qty</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -344,11 +406,14 @@ export function LoansTable({ data, items }: LoansTableProps) {
                     <TableRow key={detail.loanDetailId}>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span>{detail.item.itemDesc}</span>
-                          <span className="text-xs text-muted-foreground">Item Id: {detail.itemId}</span>
+                          <span className="font-medium">{detail.item.itemDesc}</span>
+                          <span className="text-xs text-muted-foreground">ID: {detail.itemId}</span>
                         </div>
                       </TableCell>
                       <TableCell>{detail.loanQty}</TableCell>
+                      <TableCell>
+                        <ItemStatusBadge status={detail.loanItemStatus} />
+                      </TableCell>
                       <TableCell className="text-right">
                         {selectedLoan.loanRequestStatus === LoanRequestStatus.ONGOING && detail.loanItemStatus === LoanItemStatus.ON_LOAN && (
                           <Button
@@ -357,7 +422,7 @@ export function LoansTable({ data, items }: LoansTableProps) {
                             onClick={() => handleReturnItem(detail.loanDetailId)}
                             disabled={isPending}
                           >
-                            Return
+                            {isPending ? "..." : "Return"}
                           </Button>
                         )}
                       </TableCell>
@@ -385,6 +450,23 @@ function StatusBadge({ status }: { status: LoanRequestStatus }) {
       return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Rejected</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
+  }
+}
+
+function ItemStatusBadge({ status }: { status: LoanItemStatus }) {
+  switch (status) {
+    case LoanItemStatus.PENDING:
+      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 text-xs">Pending</Badge>;
+    case LoanItemStatus.ON_LOAN:
+      return <Badge variant="default" className="bg-blue-600 hover:bg-blue-700 text-xs">On Loan</Badge>;
+    case LoanItemStatus.RETURNED:
+      return <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">Returned</Badge>;
+    case LoanItemStatus.RETURNED_LATE:
+      return <Badge variant="secondary" className="bg-orange-100 text-orange-800 hover:bg-orange-100 text-xs">Returned Late</Badge>;
+    case LoanItemStatus.REJECTED:
+      return <Badge variant="destructive" className="text-xs">Rejected</Badge>;
+    default:
+      return <Badge variant="outline" className="text-xs">{status}</Badge>;
   }
 }
 

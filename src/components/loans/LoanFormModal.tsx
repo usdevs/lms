@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, CheckCircle, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +69,7 @@ export function LoanFormModal({
 }: LoanFormModalProps) {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
+    const [createdLoanRefNo, setCreatedLoanRefNo] = useState<number | null>(null);
 
     const defaultValues = useMemo(() => {
         if (mode === "edit" && loan) {
@@ -139,7 +140,9 @@ export function LoanFormModal({
                 const result = await createLoan(data);
                 if (result.success) {
                     toast.success("Loan created successfully");
-                    setOpen(false);
+                    // Show success state with refNo instead of closing
+                    setCreatedLoanRefNo(result.refNo ?? null);
+                    // Clear the form so "Create Another" starts fresh
                     form.reset(defaultValues);
                 } else {
                     toast.error(result.error || "Failed to create loan");
@@ -215,9 +218,19 @@ export function LoanFormModal({
 
     const handleOpenChange = (newOpen: boolean) => {
         setOpen(newOpen);
-        if (!newOpen) {
+        if (newOpen) {
+            // Reset success state when opening
+            setCreatedLoanRefNo(null);
+        } else {
+            // Reset form when closing
             form.reset(defaultValues);
+            setCreatedLoanRefNo(null);
         }
+    };
+
+    const handleCreateAnother = () => {
+        form.reset(defaultValues);
+        setCreatedLoanRefNo(null);
     };
 
     const defaultTrigger = mode === "add" ? (
@@ -258,6 +271,33 @@ export function LoanFormModal({
                 </DialogTrigger>
             )}
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                {/* Success State after creating */}
+                {createdLoanRefNo !== null ? (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                                Loan Created Successfully
+                            </DialogTitle>
+                            <DialogDescription>
+                                Loan #{createdLoanRefNo} has been created and is pending approval.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-4 py-6">
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                                <p className="text-green-800 font-medium text-lg">Reference Number</p>
+                                <p className="text-green-900 text-3xl font-bold">#{createdLoanRefNo}</p>
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                                <Button onClick={handleCreateAnother} className="bg-[#FF7D4E] hover:bg-[#FF7D4E]/90">
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    Create Another
+                                </Button>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <>
                 <DialogHeader>
                     <DialogTitle>
                         {mode === "edit" ? `Edit Loan #${loan?.refNo}` : "Create New Loan"}
@@ -477,6 +517,8 @@ export function LoanFormModal({
                         </div>
                     </form>
                 </Form>
+                    </>
+                )}
             </DialogContent>
         </Dialog>
     );
