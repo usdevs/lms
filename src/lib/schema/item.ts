@@ -6,6 +6,18 @@ const optionalDate = z.preprocess(
   z.coerce.date()
 );
 
+// Accept full URLs (https://...) or local paths (/uploads/...)
+const imageUrlSchema = z
+  .union([
+    z.string().url(), // Full URLs (Supabase, etc.)
+    z.string().startsWith("/uploads/"), // Local uploads
+    z.literal(""),
+    z.undefined(),
+    z.null(),
+  ])
+  .optional()
+  .nullable();
+
 export const NewItemClientSchema = z.object({
   itemDesc: z.string().min(1, "Description is required"),
   itemSloc: z.string().min(1, "Storage Location is required"),
@@ -15,15 +27,7 @@ export const NewItemClientSchema = z.object({
   itemRemarks: z.string().optional().nullable(),
   itemPurchaseDate: optionalDate.optional(),
   itemRfpNumber: z.string().optional().nullable(),
-  itemImage: z
-    .union([
-      z.url("Must be a valid URL"),
-      z.literal(""),
-      z.undefined(),
-      z.null(),
-    ])
-    .optional()
-    .nullable(),
+  itemImage: imageUrlSchema,
 });
 
 export const NewItemServerSchema = NewItemClientSchema;
@@ -42,15 +46,7 @@ export const EditItemClientSchema = z.object({
   itemRemarks: z.string().optional().nullable(),
   itemPurchaseDate: optionalDate.optional(),
   itemRfpNumber: z.string().optional().nullable(),
-  itemImage: z
-    .union([
-      z.string().url("Must be a valid URL"),
-      z.literal(""),
-      z.undefined(),
-      z.null(),
-    ])
-    .optional()
-    .nullable(),
+  itemImage: imageUrlSchema,
 });
 
 export const EditItemServerSchema = EditItemClientSchema;

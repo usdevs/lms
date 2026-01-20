@@ -1,11 +1,16 @@
 "use server";
 
-import { supabase } from "./supabase";
 import path from "path";
 import fs from "fs/promises";
 
 // Check if running on Vercel (production) or locally
 const isVercel = process.env.VERCEL === "1";
+
+// Lazy load supabase client only when needed (on Vercel)
+async function getSupabaseClient() {
+  const { supabase } = await import("./supabase");
+  return supabase;
+}
 
 const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 
@@ -34,6 +39,7 @@ export async function uploadImage(
 
   if (isVercel) {
     // Upload to Supabase Storage
+    const supabase = await getSupabaseClient();
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(uniqueName, file, {
@@ -86,6 +92,7 @@ export async function deleteImage(
     if (isVercel || imageUrl.includes("supabase.co")) {
       // Delete from Supabase Storage
       // URL format: https://[project].supabase.co/storage/v1/object/public/item-images/[filename]
+      const supabase = await getSupabaseClient();
       const urlParts = imageUrl.split("/");
       const fileName = urlParts[urlParts.length - 1];
 
@@ -115,11 +122,4 @@ export async function deleteImage(
     console.error("Failed to delete image:", err);
     return { success: false, error: "Failed to delete image" };
   }
-}
-
-/**
- * Check if we're using local storage or Supabase
- */
-export function isLocalStorage(): boolean {
-  return !isVercel;
 }
