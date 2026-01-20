@@ -28,6 +28,8 @@ export const NewItemClientSchema = z.object({
   itemPurchaseDate: optionalDate.optional(),
   itemRfpNumber: z.string().optional().nullable(),
   itemImage: imageUrlSchema,
+  itemUnloanable: z.preprocess((v) => v === "true" || v === true, z.boolean()).optional(),
+  itemExpendable: z.preprocess((v) => v === "true" || v === true, z.boolean()).optional(),
 });
 
 export const NewItemServerSchema = NewItemClientSchema;
@@ -47,6 +49,8 @@ export const EditItemClientSchema = z.object({
   itemPurchaseDate: optionalDate.optional(),
   itemRfpNumber: z.string().optional().nullable(),
   itemImage: imageUrlSchema,
+  itemUnloanable: z.preprocess((v) => v === "true" || v === true, z.boolean()).optional(),
+  itemExpendable: z.preprocess((v) => v === "true" || v === true, z.boolean()).optional(),
 });
 
 export const EditItemServerSchema = EditItemClientSchema;

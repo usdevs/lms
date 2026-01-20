@@ -5,15 +5,7 @@ import { z } from "zod";
 import { IH, IHType, User, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateUserWithGroupsSchema, UpdateUserSchema, CreateGroupIHSchema } from "@/lib/schema/user";
-
-// Discriminated union types for type-safe action results
-type ActionSuccess<T = void> = T extends void
-    ? { success: true }
-    : { success: true; data: T };
-
-type ActionError = { success: false; error: string };
-
-export type ActionResult<T = void> = ActionSuccess<T> | ActionError;
+import { ActionResult } from "../types/actionResult";
 
 /**
  * Create a new user with optional group memberships

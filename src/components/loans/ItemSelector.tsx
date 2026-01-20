@@ -24,6 +24,7 @@ export type ItemOption = {
     itemQty: number; // Remaining stock on shelf (for info)
     totalQty?: number; // Total physical assets
     netQty?: number; // Available - Pending (Effective available)
+    itemUnloanable?: boolean; // If true, item cannot be loaned
 };
 
 interface ItemSelectorProps {
@@ -35,8 +36,10 @@ interface ItemSelectorProps {
 export function ItemSelector({ availableItems, selectedItemIds, onAddItem }: ItemSelectorProps) {
     const [open, setOpen] = React.useState(false);
 
-    // Filter out items that are already selected
-    const filteredItems = availableItems.filter(item => !selectedItemIds.includes(item.itemId));
+    // Filter out items that are already selected or are unloanable
+    const filteredItems = availableItems.filter(item => 
+        !selectedItemIds.includes(item.itemId) && !item.itemUnloanable
+    );
 
     const handleSelect = (itemId: number) => {
         onAddItem(itemId);

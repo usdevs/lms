@@ -86,6 +86,11 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                 const dbItem = await tx.item.findUnique({ where: { itemId: loanItem.itemId } });
                 if (!dbItem) throw new Error(`Item ${loanItem.itemId} not found`);
 
+                // Check if item is unloanable
+                if (dbItem.itemUnloanable) {
+                    throw new Error(`${dbItem.itemDesc} is marked as unloanable and cannot be loaned out`);
+                }
+
                 // Prevent overbooking: check pending requests
                 const pendingAgg = await tx.loanItemDetail.aggregate({
                     where: {
@@ -242,6 +247,11 @@ export async function updateLoan(refNo: number, data: {
                 const dbItem = await tx.item.findUnique({ where: { itemId: loanItem.itemId } });
                 if (!dbItem) throw new Error(`Item ${loanItem.itemId} not found`);
 
+                // Check if item is unloanable
+                if (dbItem.itemUnloanable) {
+                    throw new Error(`${dbItem.itemDesc} is marked as unloanable and cannot be loaned out`);
+                }
+
                 // Check available stock (excluding this loan's previous pending items)
                 const pendingAgg = await tx.loanItemDetail.aggregate({
                     where: {
@@ -321,7 +331,7 @@ export async function returnItem(loanDetailId: number) {
 
             const detail = await tx.loanItemDetail.findUnique({
                 where: { loanDetailId },
-                include: { loanRequest: true }
+                include: { loanRequest: true, item: true }
             });
 
             if (!detail) throw new Error("Loan detail not found");
@@ -344,11 +354,14 @@ export async function returnItem(loanDetailId: number) {
                 data: { loanItemStatus: newStatus }
             });
 
-            // Restore stock
-            await tx.item.update({
-                where: { itemId: detail.itemId },
-                data: { itemQty: { increment: detail.loanQty } }
-            });
+            // Restore stock only if item is NOT expendable
+            // Expendable items are consumed and should not be returned to inventory
+            if (!detail.item.itemExpendable) {
+                await tx.item.update({
+                    where: { itemId: detail.itemId },
+                    data: { itemQty: { increment: detail.loanQty } }
+                });
+            }
 
             // Mark loan as COMPLETED if all items returned
             const siblings = await tx.loanItemDetail.findMany({

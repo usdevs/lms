@@ -94,6 +94,8 @@ model Item {
   itemRfpNumber    String?          @map("item_rfp_number")
   itemImage        String?          @map("item_image")
   itemRemarks      String?          @map("item_remarks")
+  itemUnloanable   Boolean          @default(false) @map("item_unloanable")
+  itemExpendable   Boolean          @default(false) @map("item_expendable")
   sloc             Sloc             @relation("ItemSloc", fields: [itemSloc], references: [slocId], onDelete: Cascade, onUpdate: Cascade)
   ih               IH               @relation("ItemIH", fields: [itemIh], references: [ihId], onDelete: Cascade, onUpdate: Cascade)
   loanDetails      LoanItemDetail[]

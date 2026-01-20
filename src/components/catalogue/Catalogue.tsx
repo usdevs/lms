@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, RotateCcw, X, Pencil } from "lucide-react";
+import { Search, RotateCcw, X, Pencil, Ban, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -310,6 +310,8 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                       itemPurchaseDate: item.itemPurchaseDate,
                       itemRfpNumber: item.itemRfpNumber,
                       itemImage: item.itemImage,
+                      itemUnloanable: item.itemUnloanable,
+                      itemExpendable: item.itemExpendable,
                     }}
                     trigger={
                       <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/90 hover:bg-white shadow-sm">
@@ -328,6 +330,23 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
 
               {/* Content */}
               <div className="p-4 flex flex-col flex-1">
+                {/* Item type badges */}
+                {(item.itemUnloanable || item.itemExpendable) && (
+                  <div className="flex gap-1.5 mb-2">
+                    {item.itemUnloanable && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
+                        <Ban className="h-3 w-3" />
+                        Unloanable
+                      </span>
+                    )}
+                    {item.itemExpendable && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+                        <Package className="h-3 w-3" />
+                        Expendable
+                      </span>
+                    )}
+                  </div>
+                )}
                 <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2">
                   {item.itemDesc}
                 </h3>

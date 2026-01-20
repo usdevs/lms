@@ -43,6 +43,8 @@ export async function createItem(formData: FormData) {
         itemPurchaseDate: data.itemPurchaseDate || null,
         itemRfpNumber: data.itemRfpNumber?.trim() || null,
         itemImage: data.itemImage?.trim() || null,
+        itemUnloanable: data.itemUnloanable ?? false,
+        itemExpendable: data.itemExpendable ?? false,
       },
     });
   } catch (error) {
@@ -119,6 +121,8 @@ export async function updateItem(itemId: number, formData: FormData) {
         itemPurchaseDate: data.itemPurchaseDate || null,
         itemRfpNumber: data.itemRfpNumber?.trim() || null,
         itemImage: data.itemImage?.trim() || null,
+        itemUnloanable: data.itemUnloanable ?? false,
+        itemExpendable: data.itemExpendable ?? false,
       },
     });
   } catch (error) {
@@ -278,6 +282,8 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
         itemImage: true,
         itemSloc: true,
         itemIh: true,
+        itemUnloanable: true,
+        itemExpendable: true,
         sloc: {
           select: {
             slocId: true,

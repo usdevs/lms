@@ -30,6 +30,7 @@ import type { Prisma } from "@prisma/client";
 import { IHView } from "@/lib/types/ih";
 import { SlocView } from "@/lib/types/slocs";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SlocSelector, SlocSelectorValue, NewSlocDetails } from "./SlocSelector";
 import { IHSelector } from "./IHSelector";
 
@@ -46,6 +47,8 @@ type ItemForEdit =
       itemPurchaseDate: true;
       itemRfpNumber: true;
       itemImage: true;
+      itemUnloanable: true;
+      itemExpendable: true;
     };
   }>;
 
@@ -100,7 +103,9 @@ export default function ItemFormModal({
       itemRemarks: item?.itemRemarks ?? undefined,
       itemPurchaseDate: item?.itemPurchaseDate ?? undefined,
       itemRfpNumber: item?.itemRfpNumber ?? undefined,
-      itemImage: item?.itemImage ?? undefined, 
+      itemImage: item?.itemImage ?? undefined,
+      itemUnloanable: item?.itemUnloanable ?? false,
+      itemExpendable: item?.itemExpendable ?? false,
     }),
     [item],
   );
@@ -469,6 +474,53 @@ export default function ItemFormModal({
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="itemUnloanable"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value === true}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="cursor-pointer">
+                          Unloanable
+                        </FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          This item cannot be loaned out
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="itemExpendable"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value === true}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="cursor-pointer">
+                          Expendable
+                        </FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Item is consumed when loaned (not returned)
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button
