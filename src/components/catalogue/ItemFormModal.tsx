@@ -123,8 +123,7 @@ export default function ItemFormModal({
 
       const uploadResult = await uploadItemImage(uploadFormData);
       if ("url" in uploadResult && uploadResult.url) {
-        const origin = window.location.origin;
-        photoUrl = `${origin}${uploadResult.url}`;  // Valid Url
+        photoUrl = uploadResult.url; // Supabase returns full URL
       } else if ("error" in uploadResult) {
         toast.error(uploadResult.error || "Failed to upload image");
         setIsSubmitting(false);

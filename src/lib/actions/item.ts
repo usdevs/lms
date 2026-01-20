@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import fs from "fs";
-import path from "path";
 
 import prisma from "@/lib/prisma";
 import { formDataToObject } from "@/lib/utils";
@@ -14,6 +12,7 @@ import {
 } from "@/lib/schema/item";
 import { Prisma, LoanItemStatus } from "@prisma/client";
 import { ItemPaginationParams, PaginatedItemsResponse } from "../types/items";
+import { uploadImage, deleteImage } from "../storage";
 
 export async function createItem(formData: FormData) {
   let data;
@@ -46,11 +45,12 @@ export async function createItem(formData: FormData) {
         itemImage: data.itemImage?.trim() || null,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating item:", error);
 
     // Handle Prisma-specific errors
-    if (error.code === "P2002") {
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2002") {
       return {
         success: false,
         error: "An item with this ID already exists. Please use a different ID.",
@@ -59,7 +59,7 @@ export async function createItem(formData: FormData) {
 
     return {
       success: false,
-      error: error.message || "Failed to create item. Please try again.",
+      error: prismaError.message || "Failed to create item. Please try again.",
     };
   }
 
@@ -84,26 +84,18 @@ export async function updateItem(itemId: number, formData: FormData) {
     };
   }
   
-  const deleteImage = formData.get("deleteImage") === "true"; // Checks whether to delete   
+  const shouldDeleteImage = formData.get("deleteImage") === "true"; // Checks whether to delete   
 
   try {
-    // Delete image if requested
-    if (deleteImage && data.itemImage) {
-      try {
-        const filePath = path.join(
-          process.cwd(),
-          "public",
-          data.itemImage.replace(/^\/+/, "")
-        );
-
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          console.log("Deleted old image:", filePath);
-        }
-        data.itemImage = null; // Clear from database
-      } catch (err) {
-        console.error("Failed to delete old image:", err);
+    // Delete image from storage if requested
+    if (shouldDeleteImage && data.itemImage) {
+      const result = await deleteImage(data.itemImage);
+      if (result.success) {
+        console.log("Deleted image:", data.itemImage);
+      } else {
+        console.error("Failed to delete image:", result.error);
       }
+      data.itemImage = null; // Clear from database
     }
 
     await prisma.item.update({
@@ -120,10 +112,11 @@ export async function updateItem(itemId: number, formData: FormData) {
         itemImage: data.itemImage?.trim() || null,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error updating item:", error);
 
-    if (error.code === "P2025") {
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2025") {
       return {
         success: false,
         error: "Item not found. It may have been deleted.",
@@ -132,7 +125,7 @@ export async function updateItem(itemId: number, formData: FormData) {
 
     return {
       success: false,
-      error: error.message || "Failed to update item. Please try again.",
+      error: prismaError.message || "Failed to update item. Please try again.",
     };
   }
 
@@ -173,13 +166,28 @@ export async function deleteItem(itemId: number) {
       };
     }
 
+    // Get item to check for image before deleting
+    const item = await prisma.item.findUnique({
+      where: { itemId: data.itemId },
+      select: { itemImage: true },
+    });
+
+    // Delete image from storage if exists
+    if (item?.itemImage) {
+      const result = await deleteImage(item.itemImage);
+      if (!result.success) {
+        console.error("Failed to delete item image:", result.error);
+      }
+    }
+
     await prisma.item.delete({
       where: { itemId: data.itemId },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error deleting item:", error);
 
-    if (error.code === "P2025") {
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2025") {
       return {
         success: false,
         error: "Item not found. It may have already been deleted.",
@@ -188,7 +196,7 @@ export async function deleteItem(itemId: number) {
 
     return {
       success: false,
-      error: error.message || "Failed to delete item. Please try again.",
+      error: prismaError.message || "Failed to delete item. Please try again.",
     };
   }
 
@@ -377,28 +385,8 @@ export async function uploadItemImage(formData: FormData): Promise<{ url: string
       return { error: "File too large. Maximum size is 10MB." };
     }
 
-    const uploadsDir = path.join(process.cwd(), "public/uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    // Sanitize filename - remove any path traversal characters and special chars
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const uniqueName = `${Date.now()}-${sanitizedName}`;
-    const filePath = path.join(uploadsDir, uniqueName);
-    
-    // Double-check the resolved path is still within uploads directory
-    const resolvedPath = path.resolve(filePath);
-    const resolvedUploadsDir = path.resolve(uploadsDir);
-    if (!resolvedPath.startsWith(resolvedUploadsDir)) {
-      return { error: "Invalid file path" };
-    }
-
-    const arrayBuffer = await file.arrayBuffer();
-    fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
-
-    const url = `/uploads/${uniqueName}`;
-    return { url };
+    // Upload using the storage utility (local or Supabase based on environment)
+    return await uploadImage(file, 'item-images');
   } catch (error) {
     console.error("Failed to upload file:", error);
     return { error: "Failed to upload file" };
