@@ -14,7 +14,7 @@ import { UserRole, IHType } from '@prisma/client';
  */
 export interface User {
   userId: number;
-  telegramId: string;
+  telegramId: string | null;
   telegramHandle: string;
   firstName: string;
   lastName: string | null;
@@ -55,7 +55,7 @@ export interface IHMembership {
  */
 export interface JWTPayload {
   userId: number;
-  telegramId: string;
+  telegramId: string | null;
   telegramHandle: string;
   firstName: string;
   role: UserRole;
@@ -204,7 +204,7 @@ export interface AuthResponse {
   success: boolean;
   user?: {
     userId: number;
-    telegramId: string;
+    telegramId: string | null;
     telegramHandle: string;
     firstName: string;
     lastName: string | null;

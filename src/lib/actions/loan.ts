@@ -6,8 +6,32 @@ import { LoanItemStatus, LoanRequestStatus, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateLoanSchema } from "@/lib/schema/loan";
 import { CreateLoanResult } from "../types/loans";
+import { getSession } from "@/lib/auth/session";
+import { canManageLoans } from "@/lib/auth/rbac";
+
+/**
+ * Helper to check if the current user has permission to manage loans
+ * (approve, reject, return, update, delete)
+ */
+async function requireLoanManageAuth(): Promise<{ authorized: true } | { authorized: false; error: string }> {
+  const session = await getSession();
+  if (!session) {
+    return { authorized: false, error: "Authentication required" };
+  }
+  if (!canManageLoans(session.user.role)) {
+    return { authorized: false, error: "LOGS or ADMIN access required to manage loans" };
+  }
+  return { authorized: true };
+}
+
 
 export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promise<CreateLoanResult> {
+    // Creating loan requests requires LOGS+ (they manage the loans page)
+    const auth = await requireLoanManageAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     const parseResult = CreateLoanSchema.safeParse(data);
     if (!parseResult.success) {
         return {
@@ -120,6 +144,12 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
 }
 
 export async function approveLoan(refNo: number) {
+    // Only LOGS+ can approve loans
+    const auth = await requireLoanManageAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     try {
         await prisma.$transaction(async (tx) => {
             const request = await tx.loanRequest.findUnique({
@@ -177,6 +207,12 @@ export async function approveLoan(refNo: number) {
 }
 
 export async function rejectLoan(refNo: number) {
+    // Only LOGS+ can reject loans
+    const auth = await requireLoanManageAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     try {
         await prisma.$transaction(async (tx) => {
             const request = await tx.loanRequest.findUnique({ where: { refNo } });
@@ -206,6 +242,7 @@ export async function rejectLoan(refNo: number) {
 /**
  * Update a pending loan request
  * Only allowed for PENDING loans (pre-approval)
+ * Requires LOGS or ADMIN role
  */
 export async function updateLoan(refNo: number, data: {
     loanDateStart: Date;
@@ -215,6 +252,12 @@ export async function updateLoan(refNo: number, data: {
     eventLocation?: string;
     items: { itemId: number; loanQty: number }[];
 }) {
+    // Only LOGS+ can update loans
+    const auth = await requireLoanManageAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     try {
         await prisma.$transaction(async (tx) => {
             const request = await tx.loanRequest.findUnique({
@@ -282,8 +325,15 @@ export async function updateLoan(refNo: number, data: {
 /**
  * Delete a pending loan request
  * Only allowed for PENDING loans (pre-approval)
+ * Requires LOGS or ADMIN role
  */
 export async function deleteLoan(refNo: number) {
+    // Only LOGS+ can delete loans
+    const auth = await requireLoanManageAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     try {
         await prisma.$transaction(async (tx) => {
             const request = await tx.loanRequest.findUnique({
@@ -316,6 +366,12 @@ export async function deleteLoan(refNo: number) {
 }
 
 export async function returnItem(loanDetailId: number) {
+    // Only LOGS+ can mark items as returned
+    const auth = await requireLoanManageAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     try {
         const result = await prisma.$transaction(async (tx) => {
 

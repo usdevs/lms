@@ -34,10 +34,33 @@ export async function GET(req: Request) {
     );
   }
 
-  // Find or create user
+  // Find user by telegramId first
   let user = await prisma.user.findUnique({
     where: { telegramId: userCredentials.id.toString() },
   });
+
+  if (user === null && userCredentials.username) {
+    // Fallback: try to find by telegramHandle (for pre-created users)
+    user = await prisma.user.findUnique({
+      where: { telegramHandle: userCredentials.username },
+    });
+
+    if (user) {
+      // Link the existing user by updating their telegramId
+      user = await prisma.user.update({
+        where: { userId: user.userId },
+        data: {
+          telegramId: userCredentials.id.toString(),
+          firstName: userCredentials.first_name,
+          lastName: userCredentials.last_name || null,
+          photoUrl: userCredentials.photo_url || null,
+          updatedAt: new Date(),
+        },
+      });
+
+      console.log(`Linked existing user by handle: ${user.firstName} (${user.userId})`);
+    }
+  }
 
   if (user === null) {
     // Create new user
@@ -53,8 +76,8 @@ export async function GET(req: Request) {
     });
 
     console.log(`Created new user: ${user.firstName} (${user.userId})`);
-  } else {
-    // Update existing user's profile data
+  } else if (user.telegramId === userCredentials.id.toString()) {
+    // Update existing user's profile data (found by telegramId)
     user = await prisma.user.update({
       where: { userId: user.userId },
       data: {

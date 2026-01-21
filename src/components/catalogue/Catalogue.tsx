@@ -13,15 +13,20 @@ import { IHView } from "@/lib/types/ih";
 import { EnrichedItemView } from "@/lib/types/items";
 import { SlocView } from "@/lib/types/slocs";
 import { DashboardNav } from "@/components/DashboardNav";
+import { UserRole } from "@prisma/client";
+import { canManageItems } from "@/lib/auth/rbac";
 
 interface CatalogueProps {
   slocs: SlocView[];
   ihs: IHView[];
+  userRole?: UserRole;
 }
 
 type SortOption = "name" | "quantity" | "id";
 
-export default function Catalogue({ slocs, ihs }: CatalogueProps) {
+export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
+  // Check if user can manage items (LOGS+ only, requires authentication)
+  const canEdit = userRole ? canManageItems(userRole) : false;
   // Filters and Sort (server-side)
   const [searchString, setSearchString] = useState("");
   const [filterSlocId, setFilterSlocId] = useState<string>("");
@@ -167,13 +172,15 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
 
   return (
     <div className="min-h-screen w-full bg-[#0C2C47] p-8">
-      <DashboardNav />
+      <DashboardNav userRole={userRole} />
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
           <p className="text-white/80">{totalItems} ITEMS</p>
         </div>
-        <ItemFormModal slocs={slocs} ihs={ihs} mode="add" onSuccess={refreshItems} />
+        {canEdit && (
+          <ItemFormModal slocs={slocs} ihs={ihs} mode="add" onSuccess={refreshItems} />
+        )}
       </div>
 
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -294,39 +301,41 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
                   </div>
                 )}
                 
-                {/* Action buttons - appear on hover */}
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ItemFormModal
-                    slocs={slocs}
-                    ihs={ihs}
-                    mode="edit"
-                    item={{
-                      itemId: item.itemId,
-                      itemDesc: item.itemDesc,
-                      itemQty: item.itemQty,
-                      itemUom: item.itemUom,
-                      itemSloc: item.itemSloc,
-                      itemIh: item.itemIh,
-                      itemRemarks: item.itemRemarks,
-                      itemPurchaseDate: item.itemPurchaseDate,
-                      itemRfpNumber: item.itemRfpNumber,
-                      itemImage: item.itemImage,
-                      itemUnloanable: item.itemUnloanable,
-                      itemExpendable: item.itemExpendable,
-                    }}
-                    trigger={
-                      <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/90 hover:bg-white shadow-sm">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                    }
-                    onSuccess={refreshItems}
-                  />
-                  <DeleteItemButton
-                    itemId={Number(item.itemId)}
-                    itemDesc={item.itemDesc}
-                    onDelete={refreshItems}
-                  />
-                </div>
+                {/* Action buttons - appear on hover (only for LOGS+) */}
+                {canEdit && (
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ItemFormModal
+                      slocs={slocs}
+                      ihs={ihs}
+                      mode="edit"
+                      item={{
+                        itemId: item.itemId,
+                        itemDesc: item.itemDesc,
+                        itemQty: item.itemQty,
+                        itemUom: item.itemUom,
+                        itemSloc: item.itemSloc,
+                        itemIh: item.itemIh,
+                        itemRemarks: item.itemRemarks,
+                        itemPurchaseDate: item.itemPurchaseDate,
+                        itemRfpNumber: item.itemRfpNumber,
+                        itemImage: item.itemImage,
+                        itemUnloanable: item.itemUnloanable,
+                        itemExpendable: item.itemExpendable,
+                      }}
+                      trigger={
+                        <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/90 hover:bg-white shadow-sm">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      }
+                      onSuccess={refreshItems}
+                    />
+                    <DeleteItemButton
+                      itemId={Number(item.itemId)}
+                      itemDesc={item.itemDesc}
+                      onDelete={refreshItems}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Content */}

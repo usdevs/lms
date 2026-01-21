@@ -37,9 +37,10 @@ interface GroupsViewProps {
     groups: GroupIHWithMembers[];
     users: UserWithDetails[];
     onRefresh?: () => void;
+    canManage?: boolean;
 }
 
-export function GroupsView({ groups, users, onRefresh }: GroupsViewProps) {
+export function GroupsView({ groups, users, onRefresh, canManage = false }: GroupsViewProps) {
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [isPending, startTransition] = useTransition();
 
@@ -153,14 +154,16 @@ export function GroupsView({ groups, users, onRefresh }: GroupsViewProps) {
                         {/* Expanded Content */}
                         {isExpanded && (
                             <div className="border-t">
-                                {/* Add Member Button */}
-                                <div className="p-3 border-b bg-muted/30">
-                                    <AddMemberPopover
-                                        availableUsers={availableUsers}
-                                        onAddMember={(userId) => handleAddMember(userId, group.ihId)}
-                                        disabled={isPending || availableUsers.length === 0}
-                                    />
-                                </div>
+                                {/* Add Member Button - only show if canManage */}
+                                {canManage && (
+                                    <div className="p-3 border-b bg-muted/30">
+                                        <AddMemberPopover
+                                            availableUsers={availableUsers}
+                                            onAddMember={(userId) => handleAddMember(userId, group.ihId)}
+                                            disabled={isPending || availableUsers.length === 0}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Members List */}
                                 {group.members.length === 0 ? (
@@ -195,63 +198,65 @@ export function GroupsView({ groups, users, onRefresh }: GroupsViewProps) {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-1">
-                                                        {/* Set as Primary Button */}
-                                                        {!member.isPrimary && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => handleSetPrimary(group.ihId, member.userId, fullName)}
-                                                                disabled={isPending}
-                                                                title="Set as Primary POC"
-                                                                className="text-muted-foreground hover:text-yellow-600"
-                                                            >
-                                                                <Star className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
-
-                                                        {/* Remove from Group */}
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild>
+                                                    {canManage && (
+                                                        <div className="flex items-center gap-1">
+                                                            {/* Set as Primary Button */}
+                                                            {!member.isPrimary && (
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
-                                                                    className="text-destructive hover:text-destructive"
+                                                                    onClick={() => handleSetPrimary(group.ihId, member.userId, fullName)}
                                                                     disabled={isPending}
-                                                                    title="Remove from group"
+                                                                    title="Set as Primary POC"
+                                                                    className="text-muted-foreground hover:text-yellow-600"
                                                                 >
-                                                                    <UserMinus className="h-4 w-4" />
+                                                                    <Star className="h-4 w-4" />
                                                                 </Button>
-                                                            </AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>
-                                                                        Remove from Group
-                                                                    </AlertDialogTitle>
-                                                                    <AlertDialogDescription>
-                                                                        Remove <strong>{fullName}</strong> from{" "}
-                                                                        <strong>{group.ihName}</strong>? This
-                                                                        will not delete the user.
-                                                                    </AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                    <AlertDialogAction
-                                                                        onClick={() =>
-                                                                            handleRemoveMember(
-                                                                                member.userId,
-                                                                                group.ihId,
-                                                                                fullName
-                                                                            )
-                                                                        }
-                                                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                            )}
+
+                                                            {/* Remove from Group */}
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="text-destructive hover:text-destructive"
+                                                                        disabled={isPending}
+                                                                        title="Remove from group"
                                                                     >
-                                                                        Remove
-                                                                    </AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
-                                                    </div>
+                                                                        <UserMinus className="h-4 w-4" />
+                                                                    </Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>
+                                                                            Remove from Group
+                                                                        </AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            Remove <strong>{fullName}</strong> from{" "}
+                                                                            <strong>{group.ihName}</strong>? This
+                                                                            will not delete the user.
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                        <AlertDialogAction
+                                                                            onClick={() =>
+                                                                                handleRemoveMember(
+                                                                                    member.userId,
+                                                                                    group.ihId,
+                                                                                    fullName
+                                                                                )
+                                                                            }
+                                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                        >
+                                                                            Remove
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}

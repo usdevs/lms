@@ -13,8 +13,30 @@ import {
 import { Prisma, LoanItemStatus } from "@prisma/client";
 import { ItemPaginationParams, PaginatedItemsResponse } from "../types/items";
 import { uploadImage, deleteImage } from "../storage";
+import { getSession } from "@/lib/auth/session";
+import { canManageItems } from "@/lib/auth/rbac";
+
+/**
+ * Helper to check if the current user has permission to manage items
+ */
+async function requireItemManageAuth(): Promise<{ authorized: true } | { authorized: false; error: string }> {
+  const session = await getSession();
+  if (!session) {
+    return { authorized: false, error: "Authentication required" };
+  }
+  if (!canManageItems(session.user.role)) {
+    return { authorized: false, error: "LOGS or ADMIN access required to manage items" };
+  }
+  return { authorized: true };
+}
 
 export async function createItem(formData: FormData) {
+  // Check authorization
+  const auth = await requireItemManageAuth();
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
+  }
+
   let data;
   try {
     data = NewItemServerSchema.parse(formDataToObject(formData));
@@ -70,6 +92,12 @@ export async function createItem(formData: FormData) {
 }
 
 export async function updateItem(itemId: number, formData: FormData) {
+  // Check authorization
+  const auth = await requireItemManageAuth();
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
+  }
+
   let data;
   try {
     data = EditItemServerSchema.parse(formDataToObject(formData));
@@ -147,6 +175,12 @@ export async function updateItem(itemId: number, formData: FormData) {
 }
 
 export async function deleteItem(itemId: number) {
+  // Check authorization
+  const auth = await requireItemManageAuth();
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
+  }
+
   let data;
   try {
     data = DeleteItemSchema.parse({ itemId });
@@ -382,6 +416,12 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function uploadItemImage(formData: FormData): Promise<{ url: string } | { error: string }> {
+  // Check authorization - only LOGS+ can upload item images
+  const auth = await requireItemManageAuth();
+  if (!auth.authorized) {
+    return { error: auth.error };
+  }
+
   try {
     const file = formData.get("photo") as File;
 
