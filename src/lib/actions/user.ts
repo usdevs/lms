@@ -7,28 +7,28 @@ import prisma from "@/lib/prisma";
 import { CreateUserWithGroupsSchema, UpdateUserSchema, CreateGroupIHSchema } from "@/lib/schema/user";
 import { ActionResult } from "../types/actionResult";
 import { getSession } from "@/lib/auth/session";
-import { canManageUsers } from "@/lib/auth/rbac";
+import { canManageUsers, canManageUserOfRole, canCreateUserWithRole } from "@/lib/auth/rbac";
 
 /**
- * Helper to check if the current user has permission to manage users
+ * Helper to check if the current user has permission to manage users (LOGS+)
  */
-async function requireAdminAuth(): Promise<{ authorized: true } | { authorized: false; error: string }> {
+async function requireUserManageAuth(): Promise<{ authorized: true; actorRole: UserRole } | { authorized: false; error: string }> {
     const session = await getSession();
     if (!session) {
         return { authorized: false, error: "Authentication required" };
     }
     if (!canManageUsers(session.user.role)) {
-        return { authorized: false, error: "Admin access required" };
+        return { authorized: false, error: "LOGS or ADMIN access required" };
     }
-    return { authorized: true };
+    return { authorized: true, actorRole: session.user.role };
 }
 
 /**
  * Create a new user with optional group memberships
- * Requires ADMIN role
+ * Requires LOGS+ role, and can only create users of lower rank
  */
 export async function createUser(data: z.infer<typeof CreateUserWithGroupsSchema>): Promise<ActionResult<User>> {
-    const auth = await requireAdminAuth();
+    const auth = await requireUserManageAuth();
     if (!auth.authorized) {
         return { success: false, error: auth.error };
     }
@@ -42,6 +42,12 @@ export async function createUser(data: z.infer<typeof CreateUserWithGroupsSchema
     }
 
     const { firstName, lastName, nusnet, telegramHandle, role, groupIds } = parseResult.data;
+
+    // Check if actor can create a user with this role
+    const targetRole = role || UserRole.REQUESTER;
+    if (!canCreateUserWithRole(auth.actorRole, targetRole)) {
+        return { success: false, error: `You cannot create users with the ${targetRole} role` };
+    }
 
     try {
         // Normalize telegram handle
@@ -104,10 +110,10 @@ export async function createUser(data: z.infer<typeof CreateUserWithGroupsSchema
 
 /**
  * Update a user's details and group memberships
- * Requires ADMIN role
+ * Requires LOGS+ role, and can only update users of lower rank
  */
 export async function updateUser(data: z.infer<typeof UpdateUserSchema>): Promise<ActionResult> {
-    const auth = await requireAdminAuth();
+    const auth = await requireUserManageAuth();
     if (!auth.authorized) {
         return { success: false, error: auth.error };
     }
@@ -118,6 +124,24 @@ export async function updateUser(data: z.infer<typeof UpdateUserSchema>): Promis
     }
 
     const { userId, firstName, lastName, nusnet, telegramHandle, role, groupIds } = parseResult.data;
+
+    // Get the target user to check their current role
+    const targetUser = await prisma.user.findUnique({ where: { userId } });
+    if (!targetUser) {
+        return { success: false, error: "User not found" };
+    }
+
+    // Check if actor can manage this user (based on their current role)
+    if (!canManageUserOfRole(auth.actorRole, targetUser.role)) {
+        return { success: false, error: `You cannot edit users with the ${targetUser.role} role` };
+    }
+
+    // If changing the role, check if actor can assign the new role
+    if (role && role !== targetUser.role) {
+        if (!canCreateUserWithRole(auth.actorRole, role)) {
+            return { success: false, error: `You cannot assign the ${role} role` };
+        }
+    }
 
     try {
         const normalizedHandle = telegramHandle.startsWith("@")
@@ -212,10 +236,10 @@ export async function updateUser(data: z.infer<typeof UpdateUserSchema>): Promis
 /**
  * Delete a user (fails if they have loans)
  * Also cleans up any INDIVIDUAL IHs that were created for this user (if no items reference them)
- * Requires ADMIN role
+ * Requires LOGS+ role, and can only delete users of lower rank
  */
 export async function deleteUser(userId: number): Promise<ActionResult> {
-    const auth = await requireAdminAuth();
+    const auth = await requireUserManageAuth();
     if (!auth.authorized) {
         return { success: false, error: auth.error };
     }
@@ -246,6 +270,11 @@ export async function deleteUser(userId: number): Promise<ActionResult> {
 
         if (!user) {
             return { success: false, error: "User not found" };
+        }
+
+        // Check if actor can manage this user
+        if (!canManageUserOfRole(auth.actorRole, user.role)) {
+            return { success: false, error: `You cannot delete users with the ${user.role} role` };
         }
 
         if (user._count.loanRequests > 0 || user._count.handledLoans > 0) {
@@ -292,10 +321,10 @@ export async function deleteUser(userId: number): Promise<ActionResult> {
 }
 /**
  * Add a user to a group
- * Requires ADMIN role
+ * Requires LOGS+ role
  */
 export async function addUserToGroup(userId: number, ihId: string, isPrimary: boolean = false): Promise<ActionResult> {
-    const auth = await requireAdminAuth();
+    const auth = await requireUserManageAuth();
     if (!auth.authorized) {
         return { success: false, error: auth.error };
     }
@@ -333,10 +362,10 @@ export async function addUserToGroup(userId: number, ihId: string, isPrimary: bo
 
 /**
  * Remove a user from a group
- * Requires ADMIN role
+ * Requires LOGS+ role
  */
 export async function removeUserFromGroup(userId: number, ihId: string): Promise<ActionResult> {
-    const auth = await requireAdminAuth();
+    const auth = await requireUserManageAuth();
     if (!auth.authorized) {
         return { success: false, error: auth.error };
     }
@@ -357,10 +386,10 @@ export async function removeUserFromGroup(userId: number, ihId: string): Promise
 
 /**
  * Set a user as primary POC for a group (unsets previous primary)
- * Requires ADMIN role
+ * Requires LOGS+ role
  */
 export async function setPrimaryPOC(ihId: string, userId: number): Promise<ActionResult> {
-    const auth = await requireAdminAuth();
+    const auth = await requireUserManageAuth();
     if (!auth.authorized) {
         return { success: false, error: auth.error };
     }
@@ -400,10 +429,10 @@ export async function setPrimaryPOC(ihId: string, userId: number): Promise<Actio
 
 /**
  * Create a new GROUP IH inline
- * Requires ADMIN role
+ * Requires LOGS+ role
  */
 export async function createGroupIH(data: z.infer<typeof CreateGroupIHSchema>): Promise<ActionResult<IH>> {
-    const auth = await requireAdminAuth();
+    const auth = await requireUserManageAuth();
     if (!auth.authorized) {
         return { success: false, error: auth.error };
     }

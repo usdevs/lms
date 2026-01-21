@@ -7,13 +7,13 @@ import prisma from "@/lib/prisma";
 import { CreateLoanSchema } from "@/lib/schema/loan";
 import { CreateLoanResult } from "../types/loans";
 import { getSession } from "@/lib/auth/session";
-import { canManageLoans } from "@/lib/auth/rbac";
+import { canManageLoans, canCreateUserWithRole } from "@/lib/auth/rbac";
 
 /**
  * Helper to check if the current user has permission to manage loans
  * (approve, reject, return, update, delete)
  */
-async function requireLoanManageAuth(): Promise<{ authorized: true } | { authorized: false; error: string }> {
+async function requireLoanManageAuth(): Promise<{ authorized: true; actorRole: UserRole } | { authorized: false; error: string }> {
   const session = await getSession();
   if (!session) {
     return { authorized: false, error: "Authentication required" };
@@ -21,7 +21,7 @@ async function requireLoanManageAuth(): Promise<{ authorized: true } | { authori
   if (!canManageLoans(session.user.role)) {
     return { authorized: false, error: "LOGS or ADMIN access required to manage loans" };
   }
-  return { authorized: true };
+  return { authorized: true, actorRole: session.user.role };
 }
 
 
@@ -58,6 +58,14 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
             let finalReqId = requesterId;
 
             if (!finalReqId && newRequester) {
+                // Determine role for new user (default to REQUESTER)
+                const newUserRole = newRequester.role || UserRole.REQUESTER;
+                
+                // Check if actor can create a user with this role
+                if (!canCreateUserWithRole(auth.actorRole, newUserRole)) {
+                    throw new Error(`You cannot create users with the ${newUserRole} role`);
+                }
+
                 // Normalize telegram handle: remove @ if present and convert to lowercase
                 const normalizedHandle = newRequester.telegramHandle.startsWith("@") 
                     ? newRequester.telegramHandle.slice(1).toLowerCase()
@@ -83,7 +91,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                         lastName: newRequester.lastName || null,
                         nusnetId: newRequester.nusnet || null,
                         telegramHandle: normalizedHandle,
-                        role: newRequester.role || UserRole.REQUESTER, // Default to REQUESTER if not provided
+                        role: newUserRole,
                     }
                 });
                 finalReqId = created.userId;

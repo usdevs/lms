@@ -34,12 +34,15 @@ import {
 import { UserFormModal } from "./UserFormModal";
 import { deleteUser } from "@/lib/actions/user";
 import { UserWithDetails, GroupIHWithMembers } from "@/lib/types/user";
+import { UserRole } from "@prisma/client";
+import { canManageUserOfRole } from "@/lib/auth/rbac";
 
 interface UsersTableProps {
     users: UserWithDetails[];
     groups: GroupIHWithMembers[];
     onRefresh?: () => void;
     canManage?: boolean;
+    actorRole?: UserRole;
 }
 
 const roleColors: Record<string, string> = {
@@ -48,7 +51,7 @@ const roleColors: Record<string, string> = {
     LOGS: "bg-green-100 text-green-800",
 };
 
-export function UsersTable({ users, groups, onRefresh, canManage = false }: UsersTableProps) {
+export function UsersTable({ users, groups, onRefresh, canManage = false, actorRole }: UsersTableProps) {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -89,10 +92,23 @@ export function UsersTable({ users, groups, onRefresh, canManage = false }: User
     };
 
     const canDeleteUser = (user: UserWithDetails) => {
+        // Check hierarchical permission first
+        if (actorRole && !canManageUserOfRole(actorRole, user.role)) {
+            return false;
+        }
         return !hasLoans(user) && !isIHForItems(user);
     };
 
+    // Check if actor can edit this user based on role hierarchy
+    const canEditUser = (user: UserWithDetails) => {
+        if (!actorRole) return canManage;
+        return canManage && canManageUserOfRole(actorRole, user.role);
+    };
+
     const getDeleteDisabledReason = (user: UserWithDetails) => {
+        if (actorRole && !canManageUserOfRole(actorRole, user.role)) {
+            return `Cannot delete users with ${user.role} role`;
+        }
         if (hasLoans(user)) {
             return "Cannot delete user with loan history";
         }
@@ -175,12 +191,15 @@ export function UsersTable({ users, groups, onRefresh, canManage = false }: User
                             {canManage && (
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-1">
-                                        <UserFormModal
-                                            user={user}
-                                            groups={groups}
-                                            mode="edit"
-                                            onSuccess={onRefresh}
-                                        />
+                                        {canEditUser(user) && (
+                                            <UserFormModal
+                                                user={user}
+                                                groups={groups}
+                                                mode="edit"
+                                                onSuccess={onRefresh}
+                                                actorRole={actorRole}
+                                            />
+                                        )}
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <AlertDialog

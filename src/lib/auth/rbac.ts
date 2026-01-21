@@ -6,7 +6,11 @@
  * Access levels:
  * - REQUESTER / IH: Can only see Catalogue
  * - LOGS / ADMIN: Can see all tabs (Catalogue, Loans, Users)
- * - Only ADMIN can manage users (CRUD)
+ * 
+ * User Management (hierarchical):
+ * - LOGS can manage (create/edit/delete) REQUESTER and IH users
+ * - ADMIN can manage REQUESTER, IH, and LOGS users
+ * - Users can only manage users of strictly lower rank
  */
 
 import { UserRole } from '@prisma/client';
@@ -46,10 +50,45 @@ export function canViewUsers(role: UserRole): boolean {
 
 /**
  * Check if user can manage (CRUD) users
- * Only ADMIN can manage users
+ * LOGS can manage REQUESTER and IH users
+ * ADMIN can manage all users
  */
 export function canManageUsers(role: UserRole): boolean {
-  return role === UserRole.ADMIN;
+  return hasMinimumRole(role, UserRole.LOGS);
+}
+
+/**
+ * Check if user can manage a specific target user based on role hierarchy
+ * Users can only manage users of strictly lower rank
+ * - ADMIN can manage: REQUESTER, IH, LOGS
+ * - LOGS can manage: REQUESTER, IH
+ * - IH and REQUESTER cannot manage anyone
+ */
+export function canManageUserOfRole(actorRole: UserRole, targetRole: UserRole): boolean {
+  // Must be at least LOGS to manage any users
+  if (!hasMinimumRole(actorRole, UserRole.LOGS)) {
+    return false;
+  }
+  // Can only manage users of strictly lower rank
+  return ROLE_HIERARCHY[actorRole] > ROLE_HIERARCHY[targetRole];
+}
+
+/**
+ * Get the roles that a user can assign to others
+ * Users can only assign roles lower than their own
+ */
+export function getAssignableRoles(actorRole: UserRole): UserRole[] {
+  const actorLevel = ROLE_HIERARCHY[actorRole];
+  return Object.entries(ROLE_HIERARCHY)
+    .filter(([, level]) => level < actorLevel)
+    .map(([role]) => role as UserRole);
+}
+
+/**
+ * Check if user can create a new user with the specified role
+ */
+export function canCreateUserWithRole(actorRole: UserRole, newUserRole: UserRole): boolean {
+  return canManageUserOfRole(actorRole, newUserRole);
 }
 
 /**

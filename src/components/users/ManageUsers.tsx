@@ -44,7 +44,7 @@ export default function ManageUsers({ users, groupIHs, userRole, canManage }: Ma
                     </p>
                 </div>
                 {canManage && (
-                    <UserFormModal groups={groupIHs} mode="add" onSuccess={refreshData} />
+                    <UserFormModal groups={groupIHs} mode="add" onSuccess={refreshData} actorRole={userRole} />
                 )}
             </div>
 
@@ -78,7 +78,7 @@ export default function ManageUsers({ users, groupIHs, userRole, canManage }: Ma
 
             {/* Content */}
             {viewMode === "individual" ? (
-                <UsersTable users={users} groups={groupIHs} onRefresh={refreshData} canManage={canManage} />
+                <UsersTable users={users} groups={groupIHs} onRefresh={refreshData} canManage={canManage} actorRole={userRole} />
             ) : (
                 <GroupsView groups={groupIHs} users={users} onRefresh={refreshData} canManage={canManage} />
             )}

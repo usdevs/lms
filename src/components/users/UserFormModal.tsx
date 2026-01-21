@@ -37,6 +37,7 @@ import { GroupSelector } from "./GroupSelector";
 import { createUser, updateUser } from "@/lib/actions/user";
 import { CreateUserWithGroupsSchema, UpdateUserSchema } from "@/lib/schema/user";
 import { UserWithDetails, GroupIHWithMembers } from "@/lib/types/user";
+import { getAssignableRoles } from "@/lib/auth/rbac";
 
 interface UserFormModalProps {
     groups: GroupIHWithMembers[];
@@ -44,9 +45,10 @@ interface UserFormModalProps {
     mode?: "add" | "edit";
     trigger?: React.ReactNode;
     onSuccess?: () => void;
+    actorRole?: UserRole;
 }
 
-export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess }: UserFormModalProps) {
+export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess, actorRole }: UserFormModalProps) {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [localGroups, setLocalGroups] = useState(groups);
@@ -219,27 +221,43 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess }
                         <FormField
                             control={form.control}
                             name="role"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Role</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a role" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value={UserRole.REQUESTER}>Requester</SelectItem>
-                                            <SelectItem value={UserRole.IH}>IH (Item Holder)</SelectItem>
-                                            <SelectItem value={UserRole.LOGS}>Logs</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
+                            render={({ field }) => {
+                                // Get roles this actor can assign
+                                const assignableRoles = actorRole 
+                                    ? getAssignableRoles(actorRole)
+                                    : [UserRole.REQUESTER, UserRole.IH, UserRole.LOGS];
+                                
+                                const roleLabels: Record<UserRole, string> = {
+                                    [UserRole.REQUESTER]: "Requester",
+                                    [UserRole.IH]: "IH (Item Holder)",
+                                    [UserRole.LOGS]: "Logs",
+                                    [UserRole.ADMIN]: "Admin",
+                                };
+
+                                return (
+                                    <FormItem>
+                                        <FormLabel>Role</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a role" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {assignableRoles.map((role) => (
+                                                    <SelectItem key={role} value={role}>
+                                                        {roleLabels[role]}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                );
+                            }}
                         />
 
                         <div className="border-t pt-4">
