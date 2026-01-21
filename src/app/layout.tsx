@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NUSC LMS",
-  description: "NUSC Logistics Management System",
+  title: "NUSC - Loan Management System",
+  description: "Manage NUSC Logistics Inventory",
 };
 
 export default function RootLayout({

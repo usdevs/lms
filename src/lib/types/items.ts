@@ -3,8 +3,14 @@ import { Paginated, PaginationParams } from "./pagination";
 
 export type ItemView = Awaited<ReturnType<typeof getItems>>[number];
 
+// Enriched item view with loan calculations
+export type EnrichedItemView = ItemView & {
+  totalQty: number;
+  availableQty: number;
+};
+
 // Type for paginated items API response
-export type PaginatedItemsResponse = Paginated<ItemView>;
+export type PaginatedItemsResponse = Paginated<EnrichedItemView>;
 
 export type ItemSortOption = "name" | "quantity" | "id";
 

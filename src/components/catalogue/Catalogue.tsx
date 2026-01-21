@@ -1,17 +1,18 @@
 "use client";
 
-import { ChangeEvent, useState, useEffect, useCallback, useRef } from "react";
-import { Search, RotateCcw, X, Pencil } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Search, RotateCcw, X, Pencil, Ban, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import EditItemModal from "./EditItemModal";
+import ItemFormModal from "./ItemFormModal";
 import DeleteItemButton from "./DeleteItemButton";
 import { getItemsPaginated } from "@/lib/actions/item";
 import { IHView } from "@/lib/types/ih";
-import { ItemView } from "@/lib/types/items";
+import { EnrichedItemView } from "@/lib/types/items";
 import { SlocView } from "@/lib/types/slocs";
-
+import { DashboardNav } from "@/components/DashboardNav";
 interface CatalogueProps {
   slocs: SlocView[];
   ihs: IHView[];
@@ -28,7 +29,7 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
   const [sortAsc, setSortAsc] = useState(true);
 
   // Pagination
-  const [items, setItems] = useState<ItemView[]>([]);
+  const [items, setItems] = useState<EnrichedItemView[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -53,8 +54,8 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           setItems(response.data);
         } else {
           setItems((prev) => {
-            const existingIds = new Set(prev.map((item: ItemView) => item.itemId));
-            const newItems = response.data.filter((item: ItemView) => !existingIds.has(item.itemId));
+            const existingIds = new Set(prev.map((item: EnrichedItemView) => item.itemId));
+            const newItems = response.data.filter((item: EnrichedItemView) => !existingIds.has(item.itemId));
             return [...prev, ...newItems];
           });
         }
@@ -165,12 +166,13 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
 
   return (
     <div className="min-h-screen w-full bg-[#0C2C47] p-8">
+      <DashboardNav />
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
           <p className="text-white/80">{totalItems} ITEMS</p>
         </div>
-        <EditItemModal slocs={slocs} ihs={ihs} mode="add" onSuccess={refreshItems} />
+        <ItemFormModal slocs={slocs} ihs={ihs} mode="add" onSuccess={refreshItems} />
       </div>
 
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -270,84 +272,107 @@ export default function Catalogue({ slocs, ihs }: CatalogueProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {items.map((item) => (
             <div
               key={item.itemId}
-              className="flex flex-col rounded-lg bg-white p-6"
+              className="group relative flex flex-col rounded-xl bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             >
-              {/*Display Image*/}
-              <div className="relative w-full">
-                <div className="absolute top-8 right-0 h-32 w-32 bg-gray-100 flex items-center justify-center rounded-bl-lg overflow-hidden">
-                  {item.itemImage ? (
-                    <img
+              {/* Image with hover action buttons */}
+              <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
+                {item.itemImage ? (
+                  <img
                     src={item.itemImage}
                     alt={item.itemDesc}
-                    className="h-full w-full object-cover"
+                    className="w-full h-full object-cover"
                     loading="lazy"
-                    />
-                  ) : (
-                    <span className="text-gray-400">No Image</span>  
-                  )}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">No Image</span>
+                  </div>
+                )}
+                
+                {/* Action buttons - appear on hover */}
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ItemFormModal
+                    slocs={slocs}
+                    ihs={ihs}
+                    mode="edit"
+                    item={{
+                      itemId: item.itemId,
+                      itemDesc: item.itemDesc,
+                      itemQty: item.itemQty,
+                      itemUom: item.itemUom,
+                      itemSloc: item.itemSloc,
+                      itemIh: item.itemIh,
+                      itemRemarks: item.itemRemarks,
+                      itemPurchaseDate: item.itemPurchaseDate,
+                      itemRfpNumber: item.itemRfpNumber,
+                      itemImage: item.itemImage,
+                      itemUnloanable: item.itemUnloanable,
+                      itemExpendable: item.itemExpendable,
+                    }}
+                    trigger={
+                      <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/90 hover:bg-white shadow-sm">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    }
+                    onSuccess={refreshItems}
+                  />
+                  <DeleteItemButton
+                    itemId={Number(item.itemId)}
+                    itemDesc={item.itemDesc}
+                    onDelete={refreshItems}
+                  />
                 </div>
               </div>
 
-              <h3 className="mb-3 text-center text-xl font-bold text-gray-900">
-                {item.itemDesc}
-              </h3>
-              <div className="mb-4 flex-1 space-y-2 text-sm text-gray-700">
-                <p>
-                  <span className="font-semibold">Item ID:</span> {item.itemId}
-                </p>
-                <p>
-                  <span className="font-semibold">Quantity:</span> {item.itemQty}{" "}
-                  {item.itemUom}
-                </p>
-                <p>
-                  <span className="font-semibold">Storage Location:</span>{" "}
-                  {item.sloc.slocName}  
-                </p>
-                <p>
-                  <span className="font-semibold">Inventory Holder:</span>{" "}
-                  {item.ih.ihName}
-                </p>
-                <p className="mt-3 text-xs leading-relaxed text-[#A1A1A1]">
-                  {item.itemRemarks ? (
-                    item.itemRemarks
-                  ) : (
-                    <span className="text-gray-400 italic">-</span>
-                  )}
-                </p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <EditItemModal
-                  slocs={slocs}
-                  ihs={ihs}
-                  mode="edit"
-                  item={{
-                    itemId: item.itemId,
-                    itemDesc: item.itemDesc,
-                    itemQty: item.itemQty,
-                    itemUom: item.itemUom,
-                    itemSloc: item.itemSloc,
-                    itemIh: item.itemIh,
-                    itemRemarks: item.itemRemarks,
-                    itemPurchaseDate: item.itemPurchaseDate,
-                    itemRfpNumber: item.itemRfpNumber,
-                    itemImage: item.itemImage,
-                  }}
-                  trigger={
-                    <Button variant="outline" size="sm">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  }
-                  onSuccess={refreshItems}
-                />
-                <DeleteItemButton
-                  itemId={Number(item.itemId)}
-                  itemDesc={item.itemDesc}
-                  onDelete={refreshItems}
-                />
+              {/* Content */}
+              <div className="p-4 flex flex-col flex-1">
+                {/* Item type badges */}
+                {(item.itemUnloanable || item.itemExpendable) && (
+                  <div className="flex gap-1.5 mb-2">
+                    {item.itemUnloanable && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
+                        <Ban className="h-3 w-3" />
+                        Unloanable
+                      </span>
+                    )}
+                    {item.itemExpendable && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+                        <Package className="h-3 w-3" />
+                        Expendable
+                      </span>
+                    )}
+                  </div>
+                )}
+                <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2">
+                  {item.itemDesc}
+                </h3>
+                
+                <div className="text-xs text-gray-500 space-y-0.5 mb-4">
+                  <p className="truncate">{item.sloc.slocName}</p>
+                  <p className="truncate">
+                    {item.ih.ihName}
+                    {item.ih.members?.[0]?.user?.telegramHandle && (
+                      <span className="text-gray-400"> (@{item.ih.members[0].user.telegramHandle})</span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Quantity - simplified inline format */}
+                <div className="flex items-baseline gap-1.5 mt-auto">
+                  <span className={cn(
+                    "text-xl font-semibold",
+                    item.availableQty > 0 ? "text-green-600" : "text-destructive"
+                  )}>
+                    {item.availableQty}
+                  </span>
+                  <span className="text-gray-400 text-sm">/</span>
+                  <span className="text-gray-600 text-sm">{item.totalQty}</span>
+                  <span className="text-gray-400 text-xs ml-1">available</span>
+                </div>
               </div>
             </div>
           ))}

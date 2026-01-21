@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,15 +16,9 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createItem, updateItem, uploadItemImage } from "@/lib/actions/item";
+import { createSloc } from "@/lib/actions/sloc";
 import { objectToFormData } from "@/lib/utils";
 import {
   EditItemClientSchema,
@@ -36,6 +29,10 @@ import { Spinner } from "@/components/ui/spinner";
 import type { Prisma } from "@prisma/client";
 import { IHView } from "@/lib/types/ih";
 import { SlocView } from "@/lib/types/slocs";
+import { ImageUpload } from "@/components/ui/image-upload";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SlocSelector, SlocSelectorValue, NewSlocDetails } from "./SlocSelector";
+import { IHSelector } from "./IHSelector";
 
 type ItemForEdit =
   Prisma.ItemGetPayload<{
@@ -50,10 +47,12 @@ type ItemForEdit =
       itemPurchaseDate: true;
       itemRfpNumber: true;
       itemImage: true;
+      itemUnloanable: true;
+      itemExpendable: true;
     };
   }>;
 
-interface EditItemModalProps {
+interface ItemFormModalProps {
   slocs: SlocView[];
   ihs: IHView[];
   item?: ItemForEdit;
@@ -64,7 +63,7 @@ interface EditItemModalProps {
   onSuccess?: () => void;
 }
 
-export default function EditItemModal({
+export default function ItemFormModal({
   slocs,
   ihs,
   item,
@@ -73,13 +72,20 @@ export default function EditItemModal({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   onSuccess,
-}: EditItemModalProps) {
+}: ItemFormModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File |null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(item?.itemImage ?? null);
-  const [deleteImage, setDeleteImage] = useState(false);
-  const router = useRouter();
+  const [shouldDeleteOldImage, setShouldDeleteOldImage] = useState(false);
+  // Track the original image URL so we can delete it when replacing
+  const originalImageUrl = item?.itemImage ?? null;
+
+  // Local state for slocs (to support inline creation)
+  const [localSlocs, setLocalSlocs] = useState(slocs);
+  // New SLOC creation state
+  const [newSlocDetails, setNewSlocDetails] = useState<NewSlocDetails>({ slocName: "" });
+  const [slocSelectorValue, setSlocSelectorValue] = useState<SlocSelectorValue>(item?.itemSloc ?? undefined);
 
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : internalOpen;
@@ -97,7 +103,9 @@ export default function EditItemModal({
       itemRemarks: item?.itemRemarks ?? undefined,
       itemPurchaseDate: item?.itemPurchaseDate ?? undefined,
       itemRfpNumber: item?.itemRfpNumber ?? undefined,
-      itemImage: item?.itemImage ?? undefined, 
+      itemImage: item?.itemImage ?? undefined,
+      itemUnloanable: item?.itemUnloanable ?? false,
+      itemExpendable: item?.itemExpendable ?? false,
     }),
     [item],
   );
@@ -117,24 +125,60 @@ export default function EditItemModal({
   async function onSubmit(values: Record<string, unknown>) {
     setIsSubmitting(true);
 
-    let photoUrl = item?.itemImage ?? null;
+    // Handle new SLOC creation if needed
+    let finalSlocId = values.itemSloc as string;
+    if (slocSelectorValue === "new") {
+      if (!newSlocDetails.slocName.trim()) {
+        toast.error("Please enter a location name");
+        setIsSubmitting(false);
+        return;
+      }
+      const slocResult = await createSloc({ slocName: newSlocDetails.slocName.trim() });
+      if (!slocResult.success) {
+        toast.error(slocResult.error || "Failed to create location");
+        setIsSubmitting(false);
+        return;
+      }
+      finalSlocId = slocResult.data.slocId;
+      // Add to local slocs for future use
+      setLocalSlocs(prev => [...prev, slocResult.data]);
+    }
+
+    let photoUrl: string | null = null;
     
+    // Upload new image if selected
     if (selectedFile) {
       const uploadFormData = new FormData();
       uploadFormData.append("photo", selectedFile);
 
       const uploadResult = await uploadItemImage(uploadFormData);
       if ("url" in uploadResult && uploadResult.url) {
-        const origin = window.location.origin;
-        photoUrl = `${origin}${uploadResult.url}`;  // Valid Url
+        photoUrl = uploadResult.url;
       } else if ("error" in uploadResult) {
         toast.error(uploadResult.error || "Failed to upload image");
         setIsSubmitting(false);
         return;
       }
-    } 
+    } else if (!shouldDeleteOldImage && originalImageUrl) {
+      // Keep existing image if not deleted and no new file
+      photoUrl = originalImageUrl;
+    }
 
-    const finalValues = {...values, ...(photoUrl ? { itemImage: photoUrl } : ""), ...(deleteImage ? {deleteImage: true } : {})};
+    // Build final values
+    const finalValues: Record<string, unknown> = {
+      ...values,
+      itemSloc: finalSlocId,
+      // Set itemImage: if we have a new photo use it, if deleting use empty string to signal clear
+      itemImage: photoUrl ?? (shouldDeleteOldImage ? "" : undefined),
+    };
+    
+    // Add delete flag and old image URL if we need to delete the old image
+    // This happens when: 1) User explicitly deleted, or 2) User replaced with new image
+    if (shouldDeleteOldImage && originalImageUrl) {
+      finalValues.deleteImage = true;
+      finalValues.oldImageUrl = originalImageUrl;
+    }
+    
     const formData = objectToFormData(finalValues);
 
     const result =
@@ -148,6 +192,9 @@ export default function EditItemModal({
       toast.success(
         `Item ${mode === "edit" ? "updated" : "created"} successfully!`,
       );
+      // Reset SLOC creation state
+      setNewSlocDetails({ slocName: "" });
+      setSlocSelectorValue(undefined);
       setOpen(false);
       onSuccess?.();
       return;
@@ -180,6 +227,25 @@ export default function EditItemModal({
       form.reset(defaultValues);
       setSelectedFile(null);
       setPreviewUrl(item?.itemImage ?? null);
+      setShouldDeleteOldImage(false);
+      setLocalSlocs(slocs);
+      setNewSlocDetails({ slocName: "" });
+      setSlocSelectorValue(item?.itemSloc ?? undefined);
+    }
+  };
+
+  // Handle SLOC selector change
+  const handleSlocChange = (val: SlocSelectorValue) => {
+    setSlocSelectorValue(val);
+    if (val && val !== "new") {
+      form.setValue("itemSloc", val);
+      form.clearErrors("itemSloc");
+    } else if (val === "new") {
+      // Set placeholder to pass validation - will be replaced with actual ID on submit
+      form.setValue("itemSloc", "__new__");
+      form.clearErrors("itemSloc");
+    } else {
+      form.setValue("itemSloc", "");
     }
   };
 
@@ -205,7 +271,7 @@ export default function EditItemModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       {!trigger && <DialogTrigger asChild>{defaultTrigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
@@ -278,57 +344,41 @@ export default function EditItemModal({
                 <FormField
                   control={form.control}
                   name="itemSloc"
-                  render={({ field }) => (
+                  render={() => (
                     <FormItem>
-                      <FormLabel htmlFor="itemSloc">Storage Location *</FormLabel>
+                      <FormLabel>Storage Location *</FormLabel>
                       <FormControl>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger id="itemSloc">
-                            <SelectValue placeholder="Select location" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {slocs.map((sloc) => (
-                              <SelectItem
-                                key={sloc.slocId}
-                                value={sloc.slocId}
-                              >
-                                {sloc.slocName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SlocSelector
+                          slocs={localSlocs}
+                          value={slocSelectorValue}
+                          onChange={handleSlocChange}
+                          onNewDetailsChange={setNewSlocDetails}
+                          errors={{
+                            sloc: form.formState.errors.itemSloc?.message,
+                          }}
+                        />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
+
                 <FormField
                   control={form.control}
                   name="itemIh"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel htmlFor="itemIh">Inventory Holder *</FormLabel>
+                      <FormLabel>Inventory Holder *</FormLabel>
                       <FormControl>
-                        <Select
+                        <IHSelector
+                          ihs={ihs}
                           value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger id="itemIh">
-                            <SelectValue placeholder="Select holder" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ihs.map((ih) => (
-                              <SelectItem key={ih.ihId} value={ih.ihId}>
-                                {ih.ihName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(val) => {
+                            field.onChange(val);
+                            if (val) form.clearErrors("itemIh");
+                          }}
+                          error={form.formState.errors.itemIh?.message}
+                        />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -374,44 +424,32 @@ export default function EditItemModal({
               <FormField
                 control={form.control}
                 name="itemImage"
-                render={({ field }) => (
+                render={() => (
                   <FormItem>
-                    <FormLabel htmlFor="itemImage">Upload Image</FormLabel> 
+                    <FormLabel>Item Image</FormLabel>
                     <FormControl>
-                      <Input
-                        id="itemImage" 
-                        type="file" 
-                        accept="image/"
-                        onChange={ (e) => {
-                          const file = e.target.files?.[0] ?? null;
+                      <ImageUpload
+                        value={previewUrl}
+                        onChange={(file) => {
                           setSelectedFile(file);
-                          setPreviewUrl(file ? URL.createObjectURL(file) : item?.itemImage ?? null);
+                          if (file) {
+                            setPreviewUrl(URL.createObjectURL(file));
+                            // Mark for deletion if there was an original image
+                            if (originalImageUrl) {
+                              setShouldDeleteOldImage(true);
+                            }
+                          }
                         }}
-                        className="border rounded-md p-1" 
+                        onDelete={() => {
+                          setSelectedFile(null);
+                          setPreviewUrl(null);
+                          // Mark original image for deletion
+                          if (originalImageUrl) {
+                            setShouldDeleteOldImage(true);
+                          }
+                        }}
+                        disabled={isSubmitting}
                       />
-                      {previewUrl && (
-                        <div className="flex items-end gap-2 mt-2">
-                          <img
-                            src={previewUrl}
-                            alt="Preview"
-                            className="h-32 w-32 object-cover rounded-md border"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="bg-[#0d0a03] hover:bg-[#64615c] text-white"
-                            onClick={() => {
-                              setSelectedFile(null);
-                              setPreviewUrl(null);
-                              field.onChange("");
-                              setDeleteImage(true);
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -436,6 +474,53 @@ export default function EditItemModal({
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="itemUnloanable"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value === true}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="cursor-pointer">
+                          Unloanable
+                        </FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          This item cannot be loaned out
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="itemExpendable"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value === true}
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="cursor-pointer">
+                          Expendable
+                        </FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Item is consumed when loaned (not returned)
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button

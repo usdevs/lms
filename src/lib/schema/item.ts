@@ -1,10 +1,22 @@
-import { z } from "zod/v4";
+import { z } from "zod";
 
 // Treat empty/undefined/null as undefined, otherwise coerce to Date
 const optionalDate = z.preprocess(
   (v) => (v === undefined || v === null || v === "" ? undefined : v),
   z.coerce.date()
 );
+
+// Accept full URLs (https://...) or local paths (/uploads/...)
+const imageUrlSchema = z
+  .union([
+    z.string().url(), // Full URLs (Supabase, etc.)
+    z.string().startsWith("/uploads/"), // Local uploads
+    z.literal(""),
+    z.undefined(),
+    z.null(),
+  ])
+  .optional()
+  .nullable();
 
 export const NewItemClientSchema = z.object({
   itemDesc: z.string().min(1, "Description is required"),
@@ -15,15 +27,9 @@ export const NewItemClientSchema = z.object({
   itemRemarks: z.string().optional().nullable(),
   itemPurchaseDate: optionalDate.optional(),
   itemRfpNumber: z.string().optional().nullable(),
-  itemImage: z
-    .union([
-      z.url("Must be a valid URL"),
-      z.literal(""),
-      z.undefined(),
-      z.null(),
-    ])
-    .optional()
-    .nullable(),
+  itemImage: imageUrlSchema,
+  itemUnloanable: z.preprocess((v) => v === "true" || v === true, z.boolean()).optional(),
+  itemExpendable: z.preprocess((v) => v === "true" || v === true, z.boolean()).optional(),
 });
 
 export const NewItemServerSchema = NewItemClientSchema;
@@ -42,15 +48,9 @@ export const EditItemClientSchema = z.object({
   itemRemarks: z.string().optional().nullable(),
   itemPurchaseDate: optionalDate.optional(),
   itemRfpNumber: z.string().optional().nullable(),
-  itemImage: z
-    .union([
-      z.string().url("Must be a valid URL"),
-      z.literal(""),
-      z.undefined(),
-      z.null(),
-    ])
-    .optional()
-    .nullable(),
+  itemImage: imageUrlSchema,
+  itemUnloanable: z.preprocess((v) => v === "true" || v === true, z.boolean()).optional(),
+  itemExpendable: z.preprocess((v) => v === "true" || v === true, z.boolean()).optional(),
 });
 
 export const EditItemServerSchema = EditItemClientSchema;

@@ -1,9 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod/v4";
-import fs from "fs";
-import path from "path";
+import { z } from "zod";
 
 import prisma from "@/lib/prisma";
 import { formDataToObject } from "@/lib/utils";
@@ -12,8 +10,9 @@ import {
   EditItemServerSchema,
   NewItemServerSchema,
 } from "@/lib/schema/item";
-import { Prisma } from "@prisma/client";
+import { Prisma, LoanItemStatus } from "@prisma/client";
 import { ItemPaginationParams, PaginatedItemsResponse } from "../types/items";
+import { uploadImage, deleteImage } from "../storage";
 
 export async function createItem(formData: FormData) {
   let data;
@@ -23,7 +22,7 @@ export async function createItem(formData: FormData) {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: z.prettifyError(error),
+        error: error.issues.map((e) => e.message).join(", "),
       };
     }
     return {
@@ -44,13 +43,16 @@ export async function createItem(formData: FormData) {
         itemPurchaseDate: data.itemPurchaseDate || null,
         itemRfpNumber: data.itemRfpNumber?.trim() || null,
         itemImage: data.itemImage?.trim() || null,
+        itemUnloanable: data.itemUnloanable ?? false,
+        itemExpendable: data.itemExpendable ?? false,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating item:", error);
 
     // Handle Prisma-specific errors
-    if (error.code === "P2002") {
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2002") {
       return {
         success: false,
         error: "An item with this ID already exists. Please use a different ID.",
@@ -59,7 +61,7 @@ export async function createItem(formData: FormData) {
 
     return {
       success: false,
-      error: error.message || "Failed to create item. Please try again.",
+      error: prismaError.message || "Failed to create item. Please try again.",
     };
   }
 
@@ -75,7 +77,7 @@ export async function updateItem(itemId: number, formData: FormData) {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: z.prettifyError(error),
+        error: error.issues.map((e) => e.message).join(", "),
       };
     }
     return {
@@ -84,35 +86,32 @@ export async function updateItem(itemId: number, formData: FormData) {
     };
   }
   
-  const deleteImage = formData.get("deleteImage") === "true"; // Checks whether to delete   
+  const shouldDeleteImage = formData.get("deleteImage") === "true";
+  const oldImageUrl = formData.get("oldImageUrl") as string | null;
 
   try {
-    // Delete image 
-    const fs = require("fs");
-    const path = require("path");
-
-    if (deleteImage && data.itemImage) {
-      try {
-        const filePath = path.join(
-          process.cwd(),
-          "public",
-          data.itemImage.replace(/^\/+/, "")
-        );
-
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          console.log("Deleted old image:", filePath);
-        }
-        data.itemImage = null; // Clear from database
-      } catch (err) {
-        console.error("Failed to delete old image:", err);
+    // Handle image deletion scenarios:
+    // 1. User explicitly deleted image (shouldDeleteImage=true, no new image)
+    // 2. User replaced image (shouldDeleteImage=true, new image uploaded - oldImageUrl contains the old one)
+    if (shouldDeleteImage && oldImageUrl) {
+      // Delete the OLD image from storage
+      const result = await deleteImage(oldImageUrl);
+      if (result.success) {
+        console.log("Deleted old image:", oldImageUrl);
+      } else {
+        console.error("Failed to delete old image:", result.error);
       }
+      
+      // If no new image was uploaded, clear the itemImage field
+      if (!data.itemImage) {
+        data.itemImage = null;
+      }
+      // If a new image was uploaded, data.itemImage already contains the new URL
     }
 
     await prisma.item.update({
-      where: { itemId: itemId as any },
+      where: { itemId },
       data: {
-        itemId: itemId,
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
         itemIh: data.itemIh.trim(),
@@ -122,12 +121,15 @@ export async function updateItem(itemId: number, formData: FormData) {
         itemPurchaseDate: data.itemPurchaseDate || null,
         itemRfpNumber: data.itemRfpNumber?.trim() || null,
         itemImage: data.itemImage?.trim() || null,
+        itemUnloanable: data.itemUnloanable ?? false,
+        itemExpendable: data.itemExpendable ?? false,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error updating item:", error);
 
-    if (error.code === "P2025") {
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2025") {
       return {
         success: false,
         error: "Item not found. It may have been deleted.",
@@ -136,7 +138,7 @@ export async function updateItem(itemId: number, formData: FormData) {
 
     return {
       success: false,
-      error: error.message || "Failed to update item. Please try again.",
+      error: prismaError.message || "Failed to update item. Please try again.",
     };
   }
 
@@ -152,7 +154,7 @@ export async function deleteItem(itemId: number) {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        error: z.prettifyError(error),
+        error: error.issues.map((e) => e.message).join(", "),
       };
     }
     return {
@@ -162,13 +164,43 @@ export async function deleteItem(itemId: number) {
   }
 
   try {
-    await prisma.item.delete({
-      where: { itemId: data.itemId as any },
+    // Check for active loans before deletion
+    const activeLoans = await prisma.loanItemDetail.findFirst({
+      where: {
+        itemId: data.itemId,
+        loanItemStatus: { in: [LoanItemStatus.PENDING, LoanItemStatus.ON_LOAN] }
+      }
     });
-  } catch (error: any) {
+
+    if (activeLoans) {
+      return {
+        success: false,
+        error: "Cannot delete item with active or pending loans. Return or reject all loans first.",
+      };
+    }
+
+    // Get item to check for image before deleting
+    const item = await prisma.item.findUnique({
+      where: { itemId: data.itemId },
+      select: { itemImage: true },
+    });
+
+    // Delete image from storage if exists
+    if (item?.itemImage) {
+      const result = await deleteImage(item.itemImage);
+      if (!result.success) {
+        console.error("Failed to delete item image:", result.error);
+      }
+    }
+
+    await prisma.item.delete({
+      where: { itemId: data.itemId },
+    });
+  } catch (error) {
     console.error("Error deleting item:", error);
 
-    if (error.code === "P2025") {
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === "P2025") {
       return {
         success: false,
         error: "Item not found. It may have already been deleted.",
@@ -177,7 +209,7 @@ export async function deleteItem(itemId: number) {
 
     return {
       success: false,
-      error: error.message || "Failed to delete item. Please try again.",
+      error: prismaError.message || "Failed to delete item. Please try again.",
     };
   }
 
@@ -250,6 +282,8 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
         itemImage: true,
         itemSloc: true,
         itemIh: true,
+        itemUnloanable: true,
+        itemExpendable: true,
         sloc: {
           select: {
             slocId: true,
@@ -260,9 +294,68 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
           select: {
             ihId: true,
             ihName: true,
+            ihType: true,
+            members: {
+              where: { isPrimary: true },
+              select: {
+                user: {
+                  select: {
+                    telegramHandle: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+              take: 1,
+            },
           },
         },
       },
+    });
+
+    // Get item IDs to fetch loan data
+    const itemIds = items.map(item => item.itemId);
+
+    // Calculate inventory stats for the fetched items (only ON_LOAN matters for totals)
+    const onLoanCounts = itemIds.length > 0
+      ? await prisma.loanItemDetail.groupBy({
+          by: ['itemId'],
+          where: {
+            itemId: { in: itemIds },
+            loanItemStatus: LoanItemStatus.ON_LOAN,
+          },
+          _sum: { loanQty: true },
+        })
+      : [];
+
+    // Create map for quick lookup
+    const onLoanMap = new Map(onLoanCounts.map(p => [p.itemId, p._sum.loanQty || 0]));
+
+    // Enrich items with availableQty and totalQty
+    // Normal items: itemQty is constant (total assets), availableQty = itemQty - onLoan
+    // Expendable items: itemQty decreases on approval (consumed), availableQty = itemQty (remaining stock)
+    const enrichedItems = items.map(item => {
+      const onLoan = onLoanMap.get(item.itemId) || 0;
+
+      if (item.itemExpendable) {
+        // Expendable: itemQty is what's left, onLoan shows what's "out" but will be consumed
+        // totalQty = itemQty + onLoan (original stock before consumption)
+        // availableQty = itemQty (what can still be loaned)
+        return {
+          ...item,
+          totalQty: item.itemQty + onLoan,
+          availableQty: item.itemQty,
+        };
+      } else {
+        // Normal: itemQty is constant total, onLoan tracks what's out
+        // totalQty = itemQty (never changes)
+        // availableQty = itemQty - onLoan
+        return {
+          ...item,
+          totalQty: item.itemQty,
+          availableQty: item.itemQty - onLoan,
+        };
+      }
     });
 
     // Count total items matching filters
@@ -270,7 +363,7 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
     const totalPages = Math.ceil(totalItems / params.limit);
 
     return {
-      data: items,
+      data: enrichedItems,
       meta: {
         page: params.page,
         pageSize: params.limit,
@@ -285,6 +378,9 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
   }
 }
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
 export async function uploadItemImage(formData: FormData): Promise<{ url: string } | { error: string }> {
   try {
     const file = formData.get("photo") as File;
@@ -293,18 +389,18 @@ export async function uploadItemImage(formData: FormData): Promise<{ url: string
       return { error: "No file uploaded" };
     }
 
-    const uploadsDir = path.join(process.cwd(), "public/uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    // Validate file type
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return { error: "Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed." };
     }
 
-    const uniqueName = `${Date.now()}-${file.name}`;
-    const filePath = path.join(uploadsDir, uniqueName);
-    const arrayBuffer = await file.arrayBuffer();
-    fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      return { error: "File too large. Maximum size is 10MB." };
+    }
 
-    const url = `/uploads/${uniqueName}`;
-    return { url };
+    // Upload using the storage utility (local or Supabase based on environment)
+    return await uploadImage(file, 'item-images');
   } catch (error) {
     console.error("Failed to upload file:", error);
     return { error: "Failed to upload file" };
