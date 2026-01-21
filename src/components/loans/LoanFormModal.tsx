@@ -358,7 +358,7 @@ export function LoanFormModal({
                         {/* Loan Details */}
                         <div className="space-y-4 border p-4 rounded-md">
                             <h3 className="font-semibold text-sm text-foreground/80">Loan Details</h3>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="loanDateStart"

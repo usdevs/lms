@@ -41,7 +41,6 @@ export function ImageUpload({
   const [showWebcam, setShowWebcam] = useState(false);
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
   const [webcamError, setWebcamError] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -129,7 +128,7 @@ export function ImageUpload({
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: facingMode,
+          facingMode: "environment",
           width: { ideal: TARGET_WIDTH * 2 },
           height: { ideal: TARGET_HEIGHT * 2 },
         },
@@ -146,7 +145,7 @@ export function ImageUpload({
       console.error("Failed to access webcam:", err);
       setWebcamError("Could not access camera. Please check permissions.");
     }
-  }, [facingMode, webcamStream]);
+  }, [webcamStream]);
 
   const stopWebcam = useCallback(() => {
     if (webcamStream) {
@@ -155,17 +154,6 @@ export function ImageUpload({
     }
   }, [webcamStream]);
 
-  const switchCamera = useCallback(() => {
-    setFacingMode(prev => prev === "user" ? "environment" : "user");
-  }, []);
-
-  // Restart webcam when facing mode changes
-  useEffect(() => {
-    if (showWebcam && webcamStream) {
-      startWebcam();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facingMode]);
 
   const openWebcam = useCallback(() => {
     setShowWebcam(true);
@@ -400,15 +388,6 @@ export function ImageUpload({
 
                 {/* Controls */}
                 <div className="flex justify-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={switchCamera}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Switch Camera
-                  </Button>
                   <Button
                     type="button"
                     onClick={capturePhoto}
