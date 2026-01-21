@@ -37,7 +37,7 @@ export function UserMenu({ user }: UserMenuProps) {
       if (data.success) {
         toast.success('Logged out successfully');
         // Use window.location for full page reload to update server components
-        window.location.href = '/login';
+        window.location.href = '/';
       } else {
         toast.error('Failed to logout');
         setIsLoggingOut(false);
@@ -82,11 +82,6 @@ export function UserMenu({ user }: UserMenuProps) {
             <p className="text-xs leading-none text-muted-foreground mt-1">Role: {roleDisplay}</p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          <UserIcon className="mr-2 h-4 w-4" />
-          <span>Profile</span>
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut}>
           <LogOut className="mr-2 h-4 w-4" />

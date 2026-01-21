@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Package } from 'lucide-react';
 import { getSession } from '@/lib/auth/session';
 import { UserMenu } from '@/components/auth/UserMenu';
-import { NavbarLoginButton } from '../auth/NavbarLoginButton';
+import { LoginModal } from '@/components/auth/LoginModal';
 
 export async function Navbar() {
   const session = await getSession();
@@ -22,7 +22,7 @@ export async function Navbar() {
           {session ? (
             <UserMenu user={session.user} />
           ) : (
-            botUsername && <NavbarLoginButton botUsername={botUsername} />
+            botUsername && <LoginModal botUsername={botUsername} />
           )}
         </div>
       </div>
