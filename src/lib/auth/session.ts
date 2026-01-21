@@ -96,7 +96,7 @@ export async function getSession(): Promise<Session | null> {
       user: {
         userId: user.userId,
         telegramId: user.telegramId,
-        username: user.username,
+        telegramHandle: user.telegramHandle,
         firstName: user.firstName,
         lastName: user.lastName,
         photoUrl: user.photoUrl,
@@ -172,8 +172,8 @@ export async function createUserToken(userId: number): Promise<string> {
   // Create JWT payload
   const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
     userId: user.userId,
-    telegramId: user.telegramId.toString(),
-    username: user.username,
+    telegramId: user.telegramId,
+    telegramHandle: user.telegramHandle,
     firstName: user.firstName,
     role: user.role,
     ihMemberships: user.ihMemberships.map((m) => m.ihId),

@@ -140,8 +140,8 @@ export function extractTelegramUserData(authData: ValidatedTelegramAuth) {
   }
 
   return {
-    telegramId: BigInt(authData.telegramId),
-    username: authData.username || null,
+    telegramId: authData.telegramId.toString(),
+    telegramHandle: authData.username || `user_${authData.telegramId}`,
     firstName: authData.firstName!,
     lastName: authData.lastName || null,
     photoUrl: authData.photoUrl || null,

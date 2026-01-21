@@ -31,8 +31,8 @@ export async function GET() {
         success: true,
         user: {
           userId: session.user.userId,
-          telegramId: session.user.telegramId.toString(),
-          username: session.user.username,
+          telegramId: session.user.telegramId,
+          telegramHandle: session.user.telegramHandle,
           firstName: session.user.firstName,
           lastName: session.user.lastName,
           photoUrl: session.user.photoUrl,

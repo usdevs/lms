@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       user = await prisma.user.create({
         data: {
           telegramId: telegramUserData.telegramId,
-          username: telegramUserData.username,
+          telegramHandle: telegramUserData.telegramHandle,
           firstName: telegramUserData.firstName,
           lastName: telegramUserData.lastName,
           photoUrl: telegramUserData.photoUrl,
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       user = await prisma.user.update({
         where: { userId: user.userId },
         data: {
-          username: telegramUserData.username,
+          telegramHandle: telegramUserData.telegramHandle,
           firstName: telegramUserData.firstName,
           lastName: telegramUserData.lastName,
           photoUrl: telegramUserData.photoUrl,
@@ -98,8 +98,8 @@ export async function POST(request: NextRequest) {
         success: true,
         user: {
           userId: user.userId,
-          telegramId: user.telegramId.toString(),
-          username: user.username,
+          telegramId: user.telegramId,
+          telegramHandle: user.telegramHandle,
           firstName: user.firstName,
           lastName: user.lastName,
           photoUrl: user.photoUrl,

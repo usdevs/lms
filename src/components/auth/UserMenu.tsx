@@ -76,8 +76,8 @@ export function UserMenu({ user }: UserMenuProps) {
             <p className="text-sm font-medium leading-none">
               {user.firstName} {user.lastName || ''}
             </p>
-            {user.username && (
-              <p className="text-xs leading-none text-muted-foreground">@{user.username}</p>
+            {user.telegramHandle && (
+              <p className="text-xs leading-none text-muted-foreground">@{user.telegramHandle}</p>
             )}
             <p className="text-xs leading-none text-muted-foreground mt-1">Role: {roleDisplay}</p>
           </div>
