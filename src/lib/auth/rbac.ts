@@ -56,6 +56,7 @@ export function canManageUsers(role: UserRole): boolean {
  * Check if user can view catalogue
  * All roles can view catalogue
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function canViewCatalogue(role: UserRole): boolean {
   return true;
 }
@@ -94,6 +95,7 @@ export function canManageLoans(role: UserRole): boolean {
  * Check if user can create loan requests
  * All authenticated users can create loan requests
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function canCreateLoanRequest(role: UserRole): boolean {
   return true;
 }

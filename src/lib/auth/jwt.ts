@@ -4,7 +4,7 @@
  * Handles creation, verification, and decoding of JWT tokens for session management.
  */
 
-import jwt, { type SignOptions } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import type { JWTPayload } from '@/lib/types/auth';
 
 // Get JWT secret from environment

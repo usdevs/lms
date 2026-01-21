@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verifyTelegramAuth, extractTelegramUserData } from '@/lib/auth/telegram';
-import { createUserToken, setSessionCookie } from '@/lib/auth/session';
+import { createUserToken } from '@/lib/auth/session';
 import type { TelegramAuthData, LoginResponse } from '@/lib/types/auth';
 
 export async function POST(request: NextRequest) {
