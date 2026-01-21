@@ -36,15 +36,15 @@ export function UserMenu({ user }: UserMenuProps) {
 
       if (data.success) {
         toast.success('Logged out successfully');
-        router.push('/login');
-        router.refresh();
+        // Use window.location for full page reload to update server components
+        window.location.href = '/login';
       } else {
         toast.error('Failed to logout');
+        setIsLoggingOut(false);
       }
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('An error occurred during logout');
-    } finally {
       setIsLoggingOut(false);
     }
   };

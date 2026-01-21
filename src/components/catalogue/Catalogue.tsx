@@ -13,6 +13,7 @@ import { IHView } from "@/lib/types/ih";
 import { EnrichedItemView } from "@/lib/types/items";
 import { SlocView } from "@/lib/types/slocs";
 import { DashboardNav } from "@/components/DashboardNav";
+
 interface CatalogueProps {
   slocs: SlocView[];
   ihs: IHView[];

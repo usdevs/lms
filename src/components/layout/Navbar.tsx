@@ -1,44 +1,28 @@
 import Link from 'next/link';
+import { Package } from 'lucide-react';
 import { getSession } from '@/lib/auth/session';
 import { UserMenu } from '@/components/auth/UserMenu';
-import { Button } from '@/components/ui/button';
-import { Package } from 'lucide-react';
+import { NavbarLoginButton } from '../auth/NavbarLoginButton';
 
 export async function Navbar() {
   const session = await getSession();
+  const botUsername = process.env.TELEGRAM_BOT_USERNAME;
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-      <div className="container flex h-16 items-center px-4">
+    <nav className="sticky top-0 z-50 w-full border-b bg-white shadow-lg">
+      <div className="flex items-center justify-between px-4 py-2">
         {/* Logo and App Name */}
-        <Link href="/" className="flex items-center space-x-2 mr-6">
-          <Package className="h-6 w-6" />
-          <span className="font-bold text-xl">NUSC LMS</span>
+        <Link href="/" className="flex items-center gap-2 font-bold text-orange-500 hover:text-orange-600 transition-colors">
+          <Package className="h-5 w-5" />
+          NUSC LMS
         </Link>
 
-        {/* Navigation Links */}
-        <div className="flex gap-6 flex-1">
-          {session && (
-            <>
-              <Link
-                href="/catalogue"
-                className="text-sm font-medium transition-colors hover:text-primary"
-              >
-                Catalogue
-              </Link>
-              {/* Add more navigation links as needed */}
-            </>
-          )}
-        </div>
-
         {/* User Menu or Login Button */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center">
           {session ? (
             <UserMenu user={session.user} />
           ) : (
-            <Button asChild>
-              <Link href="/login">Login with Telegram</Link>
-            </Button>
+            botUsername && <NavbarLoginButton botUsername={botUsername} />
           )}
         </div>
       </div>

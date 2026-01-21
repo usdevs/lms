@@ -4,9 +4,9 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Users, Building2 } from "lucide-react";
 
-import { DashboardNav } from "@/components/DashboardNav";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { DashboardNav } from "@/components/DashboardNav";
 import { UsersTable } from "./UsersTable";
 import { GroupsView } from "./GroupsView";
 import { UserFormModal } from "./UserFormModal";
@@ -30,7 +30,6 @@ export default function ManageUsers({ users, groupIHs }: ManageUsersProps) {
     return (
         <div className="min-h-screen w-full bg-[#0C2C47] p-8">
             <DashboardNav />
-
             {/* Header */}
             <div className="mb-8 flex items-center justify-between">
                 <div>

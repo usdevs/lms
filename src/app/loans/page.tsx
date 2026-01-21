@@ -2,9 +2,9 @@ import React from "react";
 import { getLoans } from "@/lib/utils/server/loans";
 import { LoansTable } from "@/components/loans/LoansTable";
 import { LoanFormModal } from "@/components/loans/LoanFormModal";
-import { DashboardNav } from "@/components/DashboardNav";
 import { getUsers } from "@/lib/utils/server/users";
 import { getItems } from "@/lib/utils/server/item";
+import { DashboardNav } from "@/components/DashboardNav";
 
 
 export default async function LoanDashboardPage() {
