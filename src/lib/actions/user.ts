@@ -6,11 +6,33 @@ import { IH, IHType, User, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { CreateUserWithGroupsSchema, UpdateUserSchema, CreateGroupIHSchema } from "@/lib/schema/user";
 import { ActionResult } from "../types/actionResult";
+import { getSession } from "@/lib/auth/session";
+import { canManageUsers } from "@/lib/auth/rbac";
+
+/**
+ * Helper to check if the current user has permission to manage users
+ */
+async function requireAdminAuth(): Promise<{ authorized: true } | { authorized: false; error: string }> {
+    const session = await getSession();
+    if (!session) {
+        return { authorized: false, error: "Authentication required" };
+    }
+    if (!canManageUsers(session.user.role)) {
+        return { authorized: false, error: "Admin access required" };
+    }
+    return { authorized: true };
+}
 
 /**
  * Create a new user with optional group memberships
+ * Requires ADMIN role
  */
 export async function createUser(data: z.infer<typeof CreateUserWithGroupsSchema>): Promise<ActionResult<User>> {
+    const auth = await requireAdminAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     const parseResult = CreateUserWithGroupsSchema.safeParse(data);
     if (!parseResult.success) {
         return {
@@ -82,8 +104,14 @@ export async function createUser(data: z.infer<typeof CreateUserWithGroupsSchema
 
 /**
  * Update a user's details and group memberships
+ * Requires ADMIN role
  */
 export async function updateUser(data: z.infer<typeof UpdateUserSchema>): Promise<ActionResult> {
+    const auth = await requireAdminAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     const parseResult = UpdateUserSchema.safeParse(data);
     if (!parseResult.success) {
         return { success: false, error: "Validation failed" };
@@ -184,8 +212,14 @@ export async function updateUser(data: z.infer<typeof UpdateUserSchema>): Promis
 /**
  * Delete a user (fails if they have loans)
  * Also cleans up any INDIVIDUAL IHs that were created for this user (if no items reference them)
+ * Requires ADMIN role
  */
 export async function deleteUser(userId: number): Promise<ActionResult> {
+    const auth = await requireAdminAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     try {
         const user = await prisma.user.findUnique({
             where: { userId },
@@ -258,8 +292,14 @@ export async function deleteUser(userId: number): Promise<ActionResult> {
 }
 /**
  * Add a user to a group
+ * Requires ADMIN role
  */
 export async function addUserToGroup(userId: number, ihId: string, isPrimary: boolean = false): Promise<ActionResult> {
+    const auth = await requireAdminAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     try {
         // Check if membership already exists
         const existing = await prisma.iHMember.findUnique({
@@ -293,8 +333,14 @@ export async function addUserToGroup(userId: number, ihId: string, isPrimary: bo
 
 /**
  * Remove a user from a group
+ * Requires ADMIN role
  */
 export async function removeUserFromGroup(userId: number, ihId: string): Promise<ActionResult> {
+    const auth = await requireAdminAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     try {
         await prisma.iHMember.delete({
             where: { userId_ihId: { userId, ihId } },
@@ -311,8 +357,14 @@ export async function removeUserFromGroup(userId: number, ihId: string): Promise
 
 /**
  * Set a user as primary POC for a group (unsets previous primary)
+ * Requires ADMIN role
  */
 export async function setPrimaryPOC(ihId: string, userId: number): Promise<ActionResult> {
+    const auth = await requireAdminAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     try {
         await prisma.$transaction(async (tx) => {
             // Verify membership exists first
@@ -348,8 +400,14 @@ export async function setPrimaryPOC(ihId: string, userId: number): Promise<Actio
 
 /**
  * Create a new GROUP IH inline
+ * Requires ADMIN role
  */
 export async function createGroupIH(data: z.infer<typeof CreateGroupIHSchema>): Promise<ActionResult<IH>> {
+    const auth = await requireAdminAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
     const parseResult = CreateGroupIHSchema.safeParse(data);
     if (!parseResult.success) {
         return { success: false, error: "Validation failed" };

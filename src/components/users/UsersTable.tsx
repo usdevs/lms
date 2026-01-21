@@ -39,6 +39,7 @@ interface UsersTableProps {
     users: UserWithDetails[];
     groups: GroupIHWithMembers[];
     onRefresh?: () => void;
+    canManage?: boolean;
 }
 
 const roleColors: Record<string, string> = {
@@ -47,7 +48,7 @@ const roleColors: Record<string, string> = {
     LOGS: "bg-green-100 text-green-800",
 };
 
-export function UsersTable({ users, groups, onRefresh }: UsersTableProps) {
+export function UsersTable({ users, groups, onRefresh, canManage = false }: UsersTableProps) {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -87,7 +88,7 @@ export function UsersTable({ users, groups, onRefresh }: UsersTableProps) {
         );
     };
 
-    const canDelete = (user: UserWithDetails) => {
+    const canDeleteUser = (user: UserWithDetails) => {
         return !hasLoans(user) && !isIHForItems(user);
     };
 
@@ -123,7 +124,7 @@ export function UsersTable({ users, groups, onRefresh }: UsersTableProps) {
                         <TableHead>NUSNET</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Groups</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        {canManage && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -171,74 +172,76 @@ export function UsersTable({ users, groups, onRefresh }: UsersTableProps) {
                                     <span className="text-muted-foreground">-</span>
                                 )}
                             </TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex justify-end gap-1">
-                                    <UserFormModal
-                                        user={user}
-                                        groups={groups}
-                                        mode="edit"
-                                        onSuccess={onRefresh}
-                                    />
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <AlertDialog
-                                                open={deleteDialogOpen && deletingId === user.userId}
-                                                onOpenChange={(open) => {
-                                                    if (!isDeleting) {
-                                                        setDeleteDialogOpen(open);
-                                                        if (open) setDeletingId(user.userId);
-                                                    }
-                                                }}
-                                            >
-                                                <TooltipTrigger asChild>
-                                                    <AlertDialogTrigger asChild>
-                                                        <span tabIndex={canDelete(user) ? -1 : 0}>
+                            {canManage && (
+                                <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                        <UserFormModal
+                                            user={user}
+                                            groups={groups}
+                                            mode="edit"
+                                            onSuccess={onRefresh}
+                                        />
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <AlertDialog
+                                                    open={deleteDialogOpen && deletingId === user.userId}
+                                                    onOpenChange={(open) => {
+                                                        if (!isDeleting) {
+                                                            setDeleteDialogOpen(open);
+                                                            if (open) setDeletingId(user.userId);
+                                                        }
+                                                    }}
+                                                >
+                                                    <TooltipTrigger asChild>
+                                                        <AlertDialogTrigger asChild>
+                                                            <span tabIndex={canDeleteUser(user) ? -1 : 0}>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                                                    disabled={!canDeleteUser(user)}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </span>
+                                                        </AlertDialogTrigger>
+                                                    </TooltipTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Delete User</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Are you sure you want to delete{" "}
+                                                                <strong>{getFullName(user)}</strong>? This action
+                                                                cannot be undone.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                                                             <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                                                disabled={!canDelete(user)}
+                                                                onClick={() => handleDelete(user.userId)}
+                                                                disabled={isDeleting}
+                                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                                             >
-                                                                <Trash2 className="h-4 w-4" />
+                                                                {isDeleting ? (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Spinner className="size-4" />
+                                                                        <span>Deleting...</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    "Delete"
+                                                                )}
                                                             </Button>
-                                                        </span>
-                                                    </AlertDialogTrigger>
-                                                </TooltipTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Delete User</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Are you sure you want to delete{" "}
-                                                            <strong>{getFullName(user)}</strong>? This action
-                                                            cannot be undone.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                                                        <Button
-                                                            onClick={() => handleDelete(user.userId)}
-                                                            disabled={isDeleting}
-                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                        >
-                                                            {isDeleting ? (
-                                                                <div className="flex items-center gap-2">
-                                                                    <Spinner className="size-4" />
-                                                                    <span>Deleting...</span>
-                                                                </div>
-                                                            ) : (
-                                                                "Delete"
-                                                            )}
-                                                        </Button>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                            <TooltipContent>
-                                                <p>{getDeleteDisabledReason(user)}</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                </div>
-                            </TableCell>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                                <TooltipContent>
+                                                    <p>{getDeleteDisabledReason(user)}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
+                                </TableCell>
+                            )}
                         </TableRow>
                     ))}
                 </TableBody>

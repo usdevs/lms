@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { UserRole } from "@prisma/client";
+import { getAvailableTabs } from "@/lib/auth/rbac";
 
-export function DashboardNav() {
+interface DashboardNavProps {
+    userRole?: UserRole;
+}
+
+export function DashboardNav({ userRole }: DashboardNavProps) {
     const pathname = usePathname();
-
-    const tabs = [
-        { name: "CATALOGUE", href: "/catalogue" },
-        { name: "LOANS", href: "/loans" },
-        { name: "USERS", href: "/users" },
-    ];
+    // Unauthenticated users only see Catalogue tab
+    const tabs = userRole 
+        ? getAvailableTabs(userRole) 
+        : [{ name: 'CATALOGUE', href: '/catalogue' }];
 
     return (
         <div className="flex space-x-8 border-b border-white/10 mb-8">
