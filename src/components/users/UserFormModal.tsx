@@ -36,7 +36,7 @@ import {
 import { GroupSelector } from "./GroupSelector";
 import { createUser, updateUser } from "@/lib/actions/user";
 import { CreateUserWithGroupsSchema, UpdateUserSchema } from "@/lib/schema/user";
-import { UserWithDetails, GroupIHWithMembers } from "@/lib/types/user";
+import { UserWithDetails, GroupIHWithMembers, USER_ROLE_LABELS } from "@/lib/types/user";
 import { getAssignableRoles } from "@/lib/auth/rbac";
 
 interface UserFormModalProps {
@@ -226,13 +226,6 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess, 
                                 const assignableRoles = actorRole 
                                     ? getAssignableRoles(actorRole)
                                     : [UserRole.REQUESTER, UserRole.IH, UserRole.LOGS];
-                                
-                                const roleLabels: Record<UserRole, string> = {
-                                    [UserRole.REQUESTER]: "Requester",
-                                    [UserRole.IH]: "IH (Item Holder)",
-                                    [UserRole.LOGS]: "Logs",
-                                    [UserRole.ADMIN]: "Admin",
-                                };
 
                                 return (
                                     <FormItem>
@@ -249,7 +242,7 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess, 
                                             <SelectContent>
                                                 {assignableRoles.map((role) => (
                                                     <SelectItem key={role} value={role}>
-                                                        {roleLabels[role]}
+                                                        {USER_ROLE_LABELS[role]}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
