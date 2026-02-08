@@ -111,10 +111,10 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess, 
     };
 
     const handleGroupCreated = (newGroup: { ihId: string; ihName: string }, autoSelect: boolean) => {
-        // Add to local groups list
+        // Add to local groups list (match GroupIHWithMembers shape)
         setLocalGroups((prev) => [
             ...prev,
-            { ...newGroup, ihType: "GROUP" as const, members: [] },
+            { ...newGroup, ihType: "GROUP" as const, members: [], _count: { items: 0 } },
         ]);
         
         // Auto-select the newly created group if requested

@@ -217,7 +217,7 @@ export function UsersTable({ users, groups, onRefresh, canManage = false, actorR
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                                                    className="h-8 w-8 text-destructive hover:text-destructive disabled:text-muted-foreground"
                                                                     disabled={!canDeleteUser(user)}
                                                                 >
                                                                     <Trash2 className="h-4 w-4" />

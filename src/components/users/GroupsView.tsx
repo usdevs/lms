@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Star, UserMinus, UserPlus, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, UserMinus, UserPlus, Users, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,8 +30,15 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { removeUserFromGroup, setPrimaryPOC, addUserToGroup } from "@/lib/actions/user";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { removeUserFromGroup, setPrimaryPOC, addUserToGroup, deleteGroupIH } from "@/lib/actions/user";
 import { UserWithDetails, GroupIHWithMembers } from "@/lib/types/user";
+import { GroupFormModal } from "./GroupFormModal";
 
 interface GroupsViewProps {
     groups: GroupIHWithMembers[];
@@ -92,6 +99,18 @@ export function GroupsView({ groups, users, onRefresh, canManage = false }: Grou
         });
     };
 
+    const handleDeleteGroup = (ihId: string, ihName: string) => {
+        startTransition(async () => {
+            const result = await deleteGroupIH(ihId);
+            if (result.success) {
+                toast.success(`"${ihName}" deleted`);
+                onRefresh?.();
+            } else {
+                toast.error(result.error || "Failed to delete group");
+            }
+        });
+    };
+
     const getAvailableUsersForGroup = (group: GroupIHWithMembers) => {
         const memberIds = new Set(group.members.map((m) => m.userId));
         return users.filter((u) => !memberIds.has(u.userId));
@@ -99,9 +118,11 @@ export function GroupsView({ groups, users, onRefresh, canManage = false }: Grou
 
     if (groups.length === 0) {
         return (
-            <div className="py-16 text-center text-white/80">
-                <p className="mb-2 text-xl">No groups found</p>
-                <p>Create a group when adding or editing a user</p>
+            <div className="space-y-4">
+                <div className="py-16 text-center text-white/80">
+                    <p className="mb-2 text-xl">No groups found</p>
+                    <p className="mb-4">Create a group to get started (use the Create group button above)</p>
+                </div>
             </div>
         );
     }
@@ -112,6 +133,8 @@ export function GroupsView({ groups, users, onRefresh, canManage = false }: Grou
                 const isExpanded = expandedGroups.has(group.ihId);
                 const primaryMember = group.members.find((m) => m.isPrimary);
                 const availableUsers = getAvailableUsersForGroup(group);
+                const itemCount = group._count?.items ?? 0;
+                const canDelete = itemCount === 0;
 
                 return (
                     <div
@@ -119,56 +142,117 @@ export function GroupsView({ groups, users, onRefresh, canManage = false }: Grou
                         className="rounded-lg border bg-white overflow-hidden"
                     >
                         {/* Group Header */}
-                        <button
-                            onClick={() => toggleGroup(group.ihId)}
-                            className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left"
-                        >
-                            <div className="flex items-center gap-3">
-                                {isExpanded ? (
-                                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                                ) : (
-                                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                                )}
-                                <div className="flex items-center gap-2">
-                                    <Users className="h-5 w-5 text-muted-foreground" />
-                                    <span className="font-medium">{group.ihName}</span>
+                        <div className="flex items-center">
+                            <button
+                                onClick={() => toggleGroup(group.ihId)}
+                                className="flex-1 flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left min-w-0"
+                            >
+                                <div className="flex items-center gap-3">
+                                    {isExpanded ? (
+                                        <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+                                    ) : (
+                                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                                    )}
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <Users className="h-5 w-5 text-muted-foreground shrink-0" />
+                                        <span className="font-medium truncate">{group.ihName}</span>
+                                    </div>
+                                    <Badge variant="outline" className="text-xs shrink-0">
+                                        {group.ihType}
+                                    </Badge>
                                 </div>
-                                <Badge variant="outline" className="text-xs">
-                                    {group.ihType}
-                                </Badge>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                {primaryMember && (
-                                    <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                        {primaryMember.user.firstName}
-                                        {primaryMember.user.lastName ? ` ${primaryMember.user.lastName}` : ""}
-                                    </span>
-                                )}
-                                <Badge variant="secondary">
-                                    {group.members.length} member{group.members.length !== 1 ? "s" : ""}
-                                </Badge>
-                            </div>
-                        </button>
+                                <div className="flex items-center gap-3 shrink-0 ml-2">
+                                    {primaryMember && (
+                                        <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                            {primaryMember.user.firstName}
+                                            {primaryMember.user.lastName ? ` ${primaryMember.user.lastName}` : ""}
+                                        </span>
+                                    )}
+                                    <Badge variant="secondary">
+                                        {group.members.length} member{group.members.length !== 1 ? "s" : ""}
+                                    </Badge>
+                                </div>
+                            </button>
+                            {canManage && (
+                                <div className="flex items-center gap-0.5 pr-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                    <AddMemberPopover
+                                        availableUsers={availableUsers}
+                                        onAddMember={(userId) => handleAddMember(userId, group.ihId)}
+                                        disabled={isPending || availableUsers.length === 0}
+                                        trigger={
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                title="Add member"
+                                            >
+                                                <UserPlus className="h-4 w-4" />
+                                            </Button>
+                                        }
+                                    />
+                                    <GroupFormModal
+                                        mode="edit"
+                                        group={{ ihId: group.ihId, ihName: group.ihName }}
+                                        onSuccess={onRefresh}
+                                    />
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-destructive hover:text-destructive disabled:text-muted-foreground"
+                                                                disabled={isPending || !canDelete}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Delete group</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Delete <strong>{group.ihName}</strong>? This cannot be undone.
+                                                                    {group.members.length > 0 ? (
+                                                                        <> {group.members.length} member{group.members.length !== 1 ? "s" : ""} will be removed from this group. The users themselves will not be deleted.</>
+                                                                    ) : null}
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    onClick={() => handleDeleteGroup(group.ihId, group.ihName)}
+                                                                    disabled={isPending}
+                                                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                >
+                                                                    Delete
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                {canDelete
+                                                    ? "Delete group"
+                                                    : `${itemCount} item(s) assigned — reassign items first to delete`}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            )}
+                        </div>
 
                         {/* Expanded Content */}
                         {isExpanded && (
                             <div className="border-t">
-                                {/* Add Member Button - only show if canManage */}
-                                {canManage && (
-                                    <div className="p-3 border-b bg-muted/30">
-                                        <AddMemberPopover
-                                            availableUsers={availableUsers}
-                                            onAddMember={(userId) => handleAddMember(userId, group.ihId)}
-                                            disabled={isPending || availableUsers.length === 0}
-                                        />
-                                    </div>
-                                )}
-
                                 {/* Members List */}
                                 {group.members.length === 0 ? (
-                                    <div className="p-4 text-center text-muted-foreground">
-                                        No members in this group
+                                    <div className="py-6 text-center text-muted-foreground text-sm">
+                                        No members in this group. Use the add button in the header to add someone.
                                     </div>
                                 ) : (
                                     <div className="divide-y">
@@ -220,7 +304,7 @@ export function GroupsView({ groups, users, onRefresh, canManage = false }: Grou
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="sm"
-                                                                        className="text-destructive hover:text-destructive"
+                                                                        className="text-destructive hover:text-destructive disabled:text-muted-foreground"
                                                                         disabled={isPending}
                                                                         title="Remove from group"
                                                                     >
@@ -276,28 +360,34 @@ function AddMemberPopover({
     availableUsers,
     onAddMember,
     disabled,
+    trigger,
 }: {
     availableUsers: UserWithDetails[];
     onAddMember: (userId: number) => void;
     disabled?: boolean;
+    trigger?: React.ReactNode;
 }) {
     const [open, setOpen] = useState(false);
 
+    const defaultTrigger = (
+        <Button variant="outline" size="sm" disabled={disabled} className="w-fit">
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add member
+            {availableUsers.length === 0 && " (none available)"}
+        </Button>
+    );
+
+    const resolvedTrigger =
+        trigger !== undefined && React.isValidElement(trigger)
+            ? React.cloneElement(trigger as React.ReactElement<{ disabled?: boolean }>, { disabled })
+            : trigger ?? defaultTrigger;
+
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={disabled}
-                    className="w-full"
-                >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Add Member
-                    {availableUsers.length === 0 && " (No available users)"}
-                </Button>
+            <PopoverTrigger asChild disabled={disabled}>
+                {resolvedTrigger}
             </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0" align="start">
+            <PopoverContent className="w-[280px] p-0 translate-x-[4.75rem]" align="end">
                 <Command>
                     <CommandInput placeholder="Search users..." />
                     <CommandList>

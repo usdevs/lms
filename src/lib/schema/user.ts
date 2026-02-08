@@ -45,9 +45,3 @@ export const UpdateUserSchema = z.object({
     groupIds: z.array(z.string()).optional(),
 });
 
-/**
- * Schema for creating a new IH group inline
- */
-export const CreateGroupIHSchema = z.object({
-    ihName: z.string().min(1, "Group name is required"),
-});
