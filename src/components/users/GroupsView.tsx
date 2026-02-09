@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Star, UserMinus, UserPlus, Users, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, UserMinus, UserPlus, Users, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
