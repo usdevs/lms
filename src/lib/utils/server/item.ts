@@ -49,10 +49,10 @@ export const getItems = async () => {
     const onLoan = onLoanMap.get(item.itemId) || 0;
 
     if (item.itemExpendable) {
-      // Expendable: itemQty is what's left, onLoan shows what's "out" but will be consumed
+      // Expendable: itemQty is remaining stock (decreases on approval). Show same as total in UI so "total" goes down after loan
       return {
         ...item,
-        totalQty: item.itemQty + onLoan,
+        totalQty: item.itemQty,
         availableQty: item.itemQty,
       };
     } else {

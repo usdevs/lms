@@ -372,12 +372,10 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
       const onLoan = onLoanMap.get(item.itemId) || 0;
 
       if (item.itemExpendable) {
-        // Expendable: itemQty is what's left, onLoan shows what's "out" but will be consumed
-        // totalQty = itemQty + onLoan (original stock before consumption)
-        // availableQty = itemQty (what can still be loaned)
+        // Expendable: itemQty is remaining stock (decreases on approval). Show as total in UI so catalogue "total" goes down after loan
         return {
           ...item,
-          totalQty: item.itemQty + onLoan,
+          totalQty: item.itemQty,
           availableQty: item.itemQty,
         };
       } else {
