@@ -20,7 +20,7 @@ export type NewUserDetails = {
 export type UserWithDetails = Awaited<ReturnType<typeof getUsersWithDetails>>[number];
 
 /**
- * Group/Department IH with all members
+ * Group IH with all members
  */
 export type GroupIHWithMembers = Awaited<ReturnType<typeof getGroupIHs>>[number];
 

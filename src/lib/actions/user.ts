@@ -502,7 +502,7 @@ export async function updateGroupIH(data: z.infer<typeof UpdateGroupIHSchema>): 
             return { success: false, error: "Group not found" };
         }
 
-        if (existing.ihType !== IHType.GROUP && existing.ihType !== IHType.DEPARTMENT) {
+        if (existing.ihType !== IHType.GROUP) {
             return { success: false, error: "Only groups can be renamed" };
         }
 
@@ -544,7 +544,7 @@ export async function deleteGroupIH(ihId: string): Promise<ActionResult> {
             return { success: false, error: "Group not found" };
         }
 
-        if (group.ihType !== IHType.GROUP && group.ihType !== IHType.DEPARTMENT) {
+        if (group.ihType !== IHType.GROUP) {
             return { success: false, error: "Only groups can be deleted" };
         }
 

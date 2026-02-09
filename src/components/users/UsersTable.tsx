@@ -34,7 +34,7 @@ import {
 import { UserFormModal } from "./UserFormModal";
 import { deleteUser } from "@/lib/actions/user";
 import { UserWithDetails, GroupIHWithMembers } from "@/lib/types/user";
-import { UserRole } from "@prisma/client";
+import { IHType, UserRole } from "@prisma/client";
 import { canManageUserOfRole } from "@/lib/auth/rbac";
 
 interface UsersTableProps {
@@ -77,7 +77,7 @@ export function UsersTable({ users, groups, onRefresh, canManage = false, actorR
 
     const getUserGroups = (user: UserWithDetails) => {
         return user.ihMemberships
-            .filter((m) => m.ih.ihType === "GROUP" || m.ih.ihType === "DEPARTMENT")
+            .filter((m) => m.ih.ihType === IHType.GROUP)
             .map((m) => ({ ihId: m.ih.ihId, ihName: m.ih.ihName }));
     };
 

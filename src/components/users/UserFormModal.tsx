@@ -5,8 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { UserRole } from "@prisma/client";
+import { IHType, UserRole } from "@prisma/client";
 import { Pencil, Plus } from "lucide-react";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -57,7 +58,7 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess, 
     const initialGroupIds = useMemo(() => {
         if (!user) return [];
         return user.ihMemberships
-            .filter((m) => m.ih.ihType === "GROUP" || m.ih.ihType === "DEPARTMENT")
+            .filter((m) => m.ih.ihType === IHType.GROUP)
             .map((m) => m.ihId);
     }, [user]);
 
