@@ -9,6 +9,8 @@ import { DashboardNav } from "@/components/DashboardNav";
 import { getSession } from "@/lib/auth/session";
 import { canViewLoans } from "@/lib/auth/rbac";
 
+export const dynamic = "force-dynamic";
+
 export default async function LoanDashboardPage() {
   const session = await getSession();
 

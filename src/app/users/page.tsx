@@ -5,6 +5,8 @@ import ManageUsers from "@/components/users/ManageUsers";
 import { getSession } from "@/lib/auth/session";
 import { canViewUsers, canManageUsers } from "@/lib/auth/rbac";
 
+export const dynamic = "force-dynamic";
+
 export default async function UsersPage() {
     const session = await getSession();
 
