@@ -10,7 +10,7 @@
 import { AuthDataValidator } from '@telegram-auth/server';
 import { urlStrToAuthDataMap } from '@telegram-auth/server/utils';
 import { StatusCodes } from 'http-status-codes';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import prisma from '@/lib/prisma';
