@@ -33,8 +33,9 @@ export const sessionCookieOptions = {
  *
  * @param token - JWT token string
  */
-export async function setSessionCookie(token: string): Promise<void> {
+export async function setSessionCookie(userId: number): Promise<void> {
   const cookieStore = await cookies();
+  const token = await createUserToken(userId);
   cookieStore.set(COOKIE_NAME, token, sessionCookieOptions);
 }
 
@@ -212,16 +213,9 @@ export async function getCurrentUser() {
  * @returns JWT token string
  */
 export async function createUserToken(userId: number): Promise<string> {
-  // Fetch user with IH memberships
+  // Check user exists in db
   const user = await prisma.user.findUnique({
     where: { userId },
-    include: {
-      ihMemberships: {
-        select: {
-          ihId: true,
-        },
-      },
-    },
   });
 
   if (!user) {
@@ -234,34 +228,8 @@ export async function createUserToken(userId: number): Promise<string> {
     telegramId: user.telegramId,
     telegramHandle: user.telegramHandle,
     firstName: user.firstName,
-    role: user.role,
-    ihMemberships: user.ihMemberships.map((m) => m.ihId),
   };
 
   // Sign and return token
   return signToken(payload);
-}
-
-/**
- * Refresh session token
- *
- * Creates a new token with updated expiration time.
- * Useful for extending sessions before they expire.
- *
- * @returns New JWT token or null if not authenticated
- */
-export async function refreshSession(): Promise<string | null> {
-  const session = await getSession();
-
-  if (!session) {
-    return null;
-  }
-
-  // Create new token
-  const newToken = await createUserToken(session.user.userId);
-
-  // Update cookie
-  await setSessionCookie(newToken);
-
-  return newToken;
 }

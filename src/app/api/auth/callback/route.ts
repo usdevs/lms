@@ -14,7 +14,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import prisma from '@/lib/prisma';
-import { createUserToken, sessionCookieOptions } from '@/lib/auth/session';
+import { setSessionCookie } from '@/lib/auth/session';
 
 const validator = new AuthDataValidator({
   botToken: process.env.TELEGRAM_BOT_TOKEN!,
@@ -93,11 +93,7 @@ export async function GET(req: Request) {
   }
 
   // Create JWT token
-  const token = await createUserToken(user.userId);
-
-  // Set session cookie
-  const cookieStore = await cookies();
-  cookieStore.set('auth-token', token, sessionCookieOptions);
+  await setSessionCookie(user.userId);
 
   // Redirect back to the referring page or home
   const headersList = await headers();
