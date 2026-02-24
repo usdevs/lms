@@ -1,3 +1,31 @@
+## Loan Management System (LMS)
+
+A Next.js web application for managing NUSC Logistics inventory, loan requests, and users. Built with the App Router, Prisma ORM, and PostgreSQL.
+
+### Architecture & Schema
+
+The LMS follows a **Next.js App Router** architecture with:
+
+- **Frontend**: React components, ShadCN UI primitives, server and client components
+- **Backend**: Server Actions (`src/lib/actions/`), Prisma ORM for data access
+- **Database**: PostgreSQL with schema defined in [`prisma/schema.prisma`](prisma/schema.prisma)
+
+**Core domain model** (see [PLAN_GUIDE.md](guides/PLAN_GUIDE.md) for workflow details):
+
+| Entity | Purpose |
+|--------|---------|
+| **User** | Unified user model with roles: `REQUESTER`, `IH`, `LOGS`, `ADMIN` |
+| **IH** (Inventory Holder) | Owner/custodian of items; can be `INDIVIDUAL` or `GROUP` |
+| **IHMember** | Links users to IHs; supports multiple POCs per group |
+| **Item** | Physical inventory items with quantity, storage location, and IH |
+| **Sloc** | Storage locations (e.g. store rooms) |
+| **LoanRequest** | Loan header: requester, loggie, dates, status |
+| **LoanItemDetail** | Line items per loan: item, quantity, per-item status |
+
+For full architecture details, see [DESIGN_GUIDE.md](guides/DESIGN_GUIDE.md). For schema and migrations, see [DB_GUIDE.md](guides/DB_GUIDE.md).
+
+---
+
 ## Setup Guide
 
 ### 1. Prerequisites
@@ -75,7 +103,7 @@ For more detail on migration workflows, see [here](guides/DB_GUIDE.md)
 
 ### 6. Seed Data (Optional)
 
-To seed the database with test data as defined [here](prisma\seed.ts),
+To seed the database with test data as defined in [`prisma/seed.ts`](prisma/seed.ts),
 
 ```bash
 npx prisma db seed
