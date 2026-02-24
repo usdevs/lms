@@ -20,6 +20,13 @@ export type NewUserDetails = {
 export type UserWithDetails = Awaited<ReturnType<typeof getUsersWithDetails>>[number];
 
 /**
- * Group/Department IH with all members
+ * Group IH with all members
  */
 export type GroupIHWithMembers = Awaited<ReturnType<typeof getGroupIHs>>[number];
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+    [UserRole.REQUESTER]: "Requester",
+    [UserRole.IH]: "IH (Item Holder)",
+    [UserRole.LOGS]: "Logs",
+    [UserRole.ADMIN]: "Admin",
+};

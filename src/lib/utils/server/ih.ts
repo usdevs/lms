@@ -24,20 +24,20 @@ export const getIHs = async () =>
     });
 
 /**
- * Get GROUP and DEPARTMENT IHs with all members (not just primary)
+ * Get GROUP IHs with all members (not just primary)
  * Used for user management - group assignment
+ * Includes item count so UI can disable delete when group has items
  */
 export const getGroupIHs = async () =>
     prisma.iH.findMany({
       where: {
-        ihType: {
-          in: [IHType.GROUP, IHType.DEPARTMENT],
-        },
+        ihType: IHType.GROUP,
       },
       select: {
         ihId: true,
         ihName: true,
         ihType: true,
+        _count: { select: { items: true } },
         members: {
           select: {
             userId: true,

@@ -10,6 +10,7 @@ import { DashboardNav } from "@/components/DashboardNav";
 import { UsersTable } from "./UsersTable";
 import { GroupsView } from "./GroupsView";
 import { UserFormModal } from "./UserFormModal";
+import { GroupFormModal } from "./GroupFormModal";
 import { UserWithDetails, GroupIHWithMembers } from "@/lib/types/user";
 import { UserRole } from "@prisma/client";
 
@@ -44,7 +45,10 @@ export default function ManageUsers({ users, groupIHs, userRole, canManage }: Ma
                     </p>
                 </div>
                 {canManage && (
-                    <UserFormModal groups={groupIHs} mode="add" onSuccess={refreshData} actorRole={userRole} />
+                    <div className="flex flex-col items-end gap-2">
+                        <UserFormModal groups={groupIHs} mode="add" onSuccess={refreshData} actorRole={userRole} />
+                        <GroupFormModal mode="add" onSuccess={refreshData} />
+                    </div>
                 )}
             </div>
 

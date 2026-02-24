@@ -58,8 +58,6 @@ export interface JWTPayload {
   telegramId: string | null;
   telegramHandle: string;
   firstName: string;
-  role: UserRole;
-  ihMemberships: string[]; // Array of IH IDs
   iat: number; // Issued at (Unix timestamp)
   exp: number; // Expires at (Unix timestamp)
 }

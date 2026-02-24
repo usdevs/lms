@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { IH, IHType, User, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { CreateUserWithGroupsSchema, UpdateUserSchema, CreateGroupIHSchema } from "@/lib/schema/user";
+import { CreateUserWithGroupsSchema, UpdateUserSchema } from "@/lib/schema/user";
+import { CreateGroupIHSchema, UpdateGroupIHSchema } from "@/lib/schema/ih";
 import { ActionResult } from "../types/actionResult";
 import { getSession } from "@/lib/auth/session";
 import { canManageUsers, canManageUserOfRole, canCreateUserWithRole } from "@/lib/auth/rbac";
@@ -466,10 +467,104 @@ export async function createGroupIH(data: z.infer<typeof CreateGroupIHSchema>): 
         });
 
         revalidatePath("/users");
+        revalidatePath("/catalogue");
         return { success: true, data: newIH };
     } catch (e) {
         console.error("Failed to create group:", e);
         const message = e instanceof Error ? e.message : "Failed to create group";
+        return { success: false, error: message };
+    }
+}
+
+/**
+ * Rename a group (update ihName only)
+ * Requires LOGS+ role
+ */
+export async function updateGroupIH(data: z.infer<typeof UpdateGroupIHSchema>): Promise<ActionResult> {
+    const auth = await requireUserManageAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
+    const parseResult = UpdateGroupIHSchema.safeParse(data);
+    if (!parseResult.success) {
+        return { success: false, error: "Validation failed" };
+    }
+
+    const { ihId, ihName } = parseResult.data;
+
+    try {
+        const existing = await prisma.iH.findUnique({
+            where: { ihId },
+        });
+
+        if (!existing) {
+            return { success: false, error: "Group not found" };
+        }
+
+        if (existing.ihType !== IHType.GROUP) {
+            return { success: false, error: "Only groups can be renamed" };
+        }
+
+        await prisma.iH.update({
+            where: { ihId },
+            data: { ihName },
+        });
+
+        revalidatePath("/users");
+        revalidatePath("/catalogue");
+        return { success: true };
+    } catch (e) {
+        console.error("Failed to rename group:", e);
+        const message = e instanceof Error ? e.message : "Failed to rename group";
+        return { success: false, error: message };
+    }
+}
+
+/**
+ * Delete a group. Only allowed when the group has no items assigned.
+ * Members are removed from the group (users are not deleted).
+ * Requires LOGS+ role
+ */
+export async function deleteGroupIH(ihId: string): Promise<ActionResult> {
+    const auth = await requireUserManageAuth();
+    if (!auth.authorized) {
+        return { success: false, error: auth.error };
+    }
+
+    try {
+        const group = await prisma.iH.findUnique({
+            where: { ihId },
+            include: {
+                _count: { select: { items: true } },
+            },
+        });
+
+        if (!group) {
+            return { success: false, error: "Group not found" };
+        }
+
+        if (group.ihType !== IHType.GROUP) {
+            return { success: false, error: "Only groups can be deleted" };
+        }
+
+        if (group._count.items > 0) {
+            return {
+                success: false,
+                error: `Cannot delete group: ${group._count.items} item(s) are assigned to it. Reassign or remove those items first.`,
+            };
+        }
+
+        await prisma.iH.delete({
+            where: { ihId },
+        });
+
+        revalidatePath("/users");
+        revalidatePath("/catalogue");
+        return { success: true };
+    } catch (e) {
+        console.error("Failed to delete group:", e);
+        const message = e instanceof Error ? e.message : "Failed to delete group";
         return { success: false, error: message };
     }
 }

@@ -2,30 +2,43 @@
 
 This guide explains the **domain schema** (how the core tables relate) and the **intended workflow** for loans.
 
-NOTE: The schema is super rough (its pretty much what they gave us + a few minor changes by me), so feel free to edit it a necessayr
+The schema is defined in [`prisma/schema.prisma`](../prisma/schema.prisma) and is the source of truth for the database structure.
 
 ### 1. Domain schema
 
+- **User**
+  - Unified user model for all actors in the system. Roles: `REQUESTER`, `IH`, `LOGS`, `ADMIN`.
+  - Key fields:
+    - `userId`: Internal ID.
+    - `telegramId`, `telegramHandle`: Telegram integration for auth and notifications.
+    - `firstName`, `lastName`, `nusnetId`, `photoUrl`: Profile data.
+    - `role`: Determines permissions (see [USER_GUIDE.md](USER_GUIDE.md) for role behaviour).
+  - Relationships:
+    - `ihMemberships`: IHs this user is a member of (via `IHMember`).
+    - `loanRequests`: Loans created by this user (as requester).
+    - `handledLoans`: Loans handled by this user (as loggie).
+
 - **IH (Item Holder)**
-  - Represents the **owner / custodian** of items.
+  - Represents the **owner / custodian** of items. Can be `INDIVIDUAL` or `GROUP`.
   - Key fields:
     - `ihId`: Stable identifier for the IH.
     - `ihName`: Human‑readable name.
-    - `ihPocTele`: Telegram / contact handle of the IH POC (optional).
+    - `ihType`: `INDIVIDUAL` (single person) or `GROUP` (IG/club/committee).
   - Relationships:
+    - `members`: `IHMember` rows linking users to this IH (multiple POCs for groups).
     - `items`: All `Item` rows currently under this IH.
-    - `loanDetails`: All `LoanItemDetail` rows where this IH was responsible at the point of loan.
+
+- **IHMember**
+  - Links users to IHs. Supports multiple POCs per group; one can be marked `isPrimary`.
+  - Key fields: `userId`, `ihId`, `isPrimary`.
 
 - **Item**
   - Represents a **physical inventory item** that can be loaned.
   - Key fields:
     - `itemId`: Autoincrementing serial number.
-    - `itemDesc`: Description/Name of the item.
-    - `itemSloc`: Storage location ID (FK to `Sloc`).
-    - `itemIh`: Current IH ID (FK to `IH`).
-    - `itemQty`: **Current available quantity** in stock.
-    - `itemUom`: Unit of measure (e.g. `pcs`, `sets`).
+    - `itemDesc`, `itemSloc`, `itemIh`, `itemQty`, `itemUom`: Core inventory data.
     - `itemPurchaseDate`, `itemRfpNumber`, `itemImage`, `itemRemarks`: Optional metadata.
+    - `itemUnloanable`, `itemExpendable`: Special behaviour flags.
   - Relationships:
     - `sloc`: The `Sloc` row describing where it is stored.
     - `ih`: The `IH` row describing who is responsible.
@@ -33,67 +46,37 @@ NOTE: The schema is super rough (its pretty much what they gave us + a few minor
 
 - **Sloc (Storage Location)**
   - Represents a **physical storage location** (e.g. store room).
-  - Key fields:
-    - `slocId`: ID of the location.
-    - `slocName`: Human‑readable name.
-  - Relationships:
-    - `items`: All items currently stored here.
-    - `loanDetails`: Historical loan details that used this sloc during the event.
-
-- **Requester**
-  - Represents the **end user** requesting loans (usually a member / event IC).
-  - Key fields:
-    - `reqId`: Internal ID.
-    - `reqName`: Name of requester.
-    - `reqTelehandle`: Telegram handle for notifications (optional but important in workflow).
-    - `reqNusnet`: Unique NUSNET ID.
-  - Relationships:
-    - `loanRequests`: All `LoanRequest` rows created by this requester.
-
-- **Loggies**
-  - Represents **logistics staff** who manage and approve/track loans.
-  - Key fields:
-    - `loggieId`: Internal ID.
-    - `loggieName`: Name of loggie.
-    - `loggieTele`: Telegram / contact (optional).
-    - `loggieNusnet`: Unique NUSNET ID.
-  - Relationships:
-    - `loanRequests`: All `LoanRequest` rows handled by this loggie.
+  - Key fields: `slocId`, `slocName`.
+  - Relationships: `items` – all items currently stored here.
 
 - **LoanRequest**
-  - Represents a **loan request “header”** for an event or period.
+  - Represents a **loan request header** for an event or period.
   - Key fields:
-    - `refNo`: Primary key (loan reference number, shared by all items in this request).
+    - `refNo`: Primary key (loan reference number).
     - `loanDateStart`, `loanDateEnd`: Planned loan period.
-    - `reqId`: FK to `Requester` (who is borrowing).
-    - `loggieId`: FK to `Loggies` (assigned handler, optional in early phases).
+    - `reqId`: FK to `User` (requester).
+    - `loggieId`: FK to `User` (assigned loggie, optional).
     - `organisation`, `eventDetails`, `eventLocation`: Optional contextual info.
-    - `requestStatus`: Overall status of the request (e.g. requested, pending, approved, rejected, closed).
+    - `loanRequestStatus`: `PENDING`, `ONGOING`, `COMPLETED`, `REJECTED`.
   - Relationships:
     - `requester`: The user who created the request.
-    - `loggie`: The loggie responsible for handling/approving the request.
-    - `loanDetails`: One‑to‑many `LoanItemDetail` rows for each item and quantity in this request.
+    - `loggie`: The user responsible for handling/approving the request.
+    - `loanDetails`: One‑to‑many `LoanItemDetail` rows.
 
 - **LoanItemDetail**
   - Represents a **single line item within a loan request**.
   - Key fields:
     - `loanDetailId`: Primary key.
-    - `refNo`: FK to `LoanRequest` (header).
-    - `itemId`: FK to `Item.id` (which item is being loaned).
-    - `loanQty`: Quantity of this item requested/loaned.
-    - `loanStatus`: Status of this line item (e.g. pending, dispensed, returned).
-    - `itemSlocAtLoan`: (??) Not really sure what this is. To clairfy with logs team.
-    - `itemIhAtLoan`: (??) Not really sure what this is. To clairfy with logs team.
-  - Relationships:
-    - `loanRequest`: Back‑reference to the header (`LoanRequest`).
-    - `item`: The `Item` to which this loan line refers.
-    - `slocAtLoan`: The `Sloc` at the time of loan, if recorded.
-    - `ihAtLoan`: The `IH` at the time of loan, if recorded.
+    - `refNo`: FK to `LoanRequest`.
+    - `itemId`: FK to `Item`.
+    - `loanQty`: Quantity requested/loaned.
+    - `loanItemStatus`: `PENDING`, `ON_LOAN`, `RETURNED`, `RETURNED_LATE`, `REJECTED`.
+  - Relationships: `loanRequest`, `item`.
 
 In summary:
-- **Requester** asks to borrow items.
-- **Loggies** manage and coordinate the loan.
-- **IHs** own/hold the items and often handle hand‑over.
+- **User** (with role `REQUESTER`) asks to borrow items.
+- **User** (with role `LOGS`) manages and coordinates the loan.
+- **IH** (with `IHMember` POCs) owns/holds the items.
 - **LoanRequest** + **LoanItemDetail** model the full lifecycle of each loaned item.
 
 ### 2. Workflow overview
@@ -143,8 +126,8 @@ In Phase 2, the same schema is used, but the workflow is user‑driven and visib
 
 3. **On successful approval: notify and reserve stock**
    - When loggies/IHs approve the loan:
-     - The system sends a **Telegram message** to the user using `Requester.reqTelehandle`, including:
-       - The **Telegram handle of the IH POC** (`IH.ihPocTele`),
+     - The system sends a **Telegram message** to the user using `User.telegramHandle`, including:
+       - The **Telegram handle of the IH POC** (from `IHMember` primary contact),
        - Summary of the approved loan.
      - The **status of each approved loan line** is set to **`pending`** (waiting for physical collection).
 

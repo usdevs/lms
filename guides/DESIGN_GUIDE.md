@@ -4,27 +4,39 @@ This project is a **Next.js App Router** app.
 
 As much as possible, the structure was designed to be roughly similar to the NUSCWeb repo. This goes for the UI design too.
 
+For the **database schema** and domain model (User, IH, Item, LoanRequest, etc.), see [`prisma/schema.prisma`](../prisma/schema.prisma) and [PLAN_GUIDE.md](PLAN_GUIDE.md).
+
 ### 1. Top-level structure
 
 - **`src/app`**: Route structure and pages (UI entry points)
-  - `layout.tsx`: Root layout, shared providers, theme, etc.
-  - `page.tsx`: Home page / landing. Currently redirects to the catalogue page
-  - `catalogue/page.tsx`: Route for the item catalogue.
+  - `layout.tsx`: Root layout, shared providers, theme, Navbar.
+  - `page.tsx`: Home page / landing. Currently redirects to the catalogue page.
+  - `catalogue/page.tsx`: Item catalogue route.
+  - `loans/page.tsx`: Loan management route.
+  - `users/page.tsx`: User management route.
+  - `api/auth/*`: Auth API routes (callback, me, logout, dev-login).
 - **`src/components`**: Reusable React components
-  - `catalogue/*`: Components specific to the catalogue (e.g. `Catalogue`, `EditItemModal`, `DeleteItemButton`).
+  - `catalogue/*`: Catalogue-specific (e.g. `Catalogue`, `ItemFormModal`, `DeleteItemButton`, `SlocSelector`, `IHSelector`).
+  - `loans/*`: Loan-specific (e.g. `LoansTable`, `LoanFormModal`, `RequesterSelector`, `ItemSelector`).
+  - `users/*`: User management (e.g. `ManageUsers`, `UsersTable`, `GroupsView`, `UserFormModal`, `GroupFormModal`).
+  - `auth/*`: Auth UI (`LoginModal`, `UserMenu`, `DevRoleDropdown`).
+  - `layout/*`: Layout components (e.g. `Navbar`).
   - `ui/*`: Shared UI primitives (buttons, inputs, dialogs, etc. – largely ShadCN-style).
 - **`src/lib`**: Domain logic and shared utilities
-  - `actions/*`: Server actions for mutations / queries (e.g. `item` actions).
+  - `actions/*`: Server actions for mutations / queries (e.g. `item`, `loan`, `user`, `sloc`).
   - `schema/*`: Zod schemas / validation for domain objects.
-  - `utils/*`: General utilities (client + server), with a `server` subfolder for purely server-side helpers.
+  - `types/*`: TypeScript types and view models.
+  - `utils/*`: General utilities (client + server), with a `server` subfolder for data-fetching helpers (e.g. `item`, `ih`, `loans`, `slocs`, `users`).
+  - `auth/*`: Auth logic (session, JWT, RBAC, Telegram validation, dev-auth).
   - `prisma.ts`: Prisma client singleton.
 - **`prisma`**: Database layer
   - `schema.prisma`: Source of truth for DB structure.
   - `seed.ts`: Script for populating local/dev data.
 - **`guides`**: Project documentation for onboarding:
-  - `DB_GUIDE.md`: Prisma, schema, seeds, db push / migrations.
+  - `DB_GUIDE.md`: Prisma, schema, seeds, migrations.
   - `DESIGN_GUIDE.md`: This file (structure & organisation).
-  - `PLAN_GUIDE.md`: High‑level functionality roadmap/plans.
+  - `PLAN_GUIDE.md`: Domain schema and workflow plans.
+  - `USER_GUIDE.md`: End-user instructions for the app.
 
 ### 2. How to organise new features
 
@@ -56,6 +68,13 @@ When you add a new feature (e.g. “loans dashboard”, “IH management”):
   - Reuse these schemas:
     - In server actions for validation,
     - In forms (via `react-hook-form` + `zod` resolvers).
+
+- **Types**
+  - Add TypeScript types under `src/lib/types/<feature>.ts` when you need:
+    - View models derived from server utils (e.g. `Awaited<ReturnType<typeof getX>>[number]`),
+    - Shared result types (e.g. `ActionResult<T>` from `actionResult.ts`),
+    - Domain-specific types used across components and actions.
+  - Keep Prisma-generated types in `@prisma/client`; use `src/lib/types` for app-level view/response shapes.
 
 ### 3. UI layer conventions
 

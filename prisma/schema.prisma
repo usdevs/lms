@@ -20,7 +20,6 @@ enum UserRole {
 enum IHType {
   INDIVIDUAL // Single person
   GROUP // IG/club/committee
-  DEPARTMENT // School department
 }
 
 enum LoanRequestStatus {

@@ -5,8 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { UserRole } from "@prisma/client";
+import { IHType, UserRole } from "@prisma/client";
 import { Pencil, Plus } from "lucide-react";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +37,7 @@ import {
 import { GroupSelector } from "./GroupSelector";
 import { createUser, updateUser } from "@/lib/actions/user";
 import { CreateUserWithGroupsSchema, UpdateUserSchema } from "@/lib/schema/user";
-import { UserWithDetails, GroupIHWithMembers } from "@/lib/types/user";
+import { UserWithDetails, GroupIHWithMembers, USER_ROLE_LABELS } from "@/lib/types/user";
 import { getAssignableRoles } from "@/lib/auth/rbac";
 
 interface UserFormModalProps {
@@ -57,7 +58,7 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess, 
     const initialGroupIds = useMemo(() => {
         if (!user) return [];
         return user.ihMemberships
-            .filter((m) => m.ih.ihType === "GROUP" || m.ih.ihType === "DEPARTMENT")
+            .filter((m) => m.ih.ihType === IHType.GROUP)
             .map((m) => m.ihId);
     }, [user]);
 
@@ -111,10 +112,10 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess, 
     };
 
     const handleGroupCreated = (newGroup: { ihId: string; ihName: string }, autoSelect: boolean) => {
-        // Add to local groups list
+        // Add to local groups list (match GroupIHWithMembers shape)
         setLocalGroups((prev) => [
             ...prev,
-            { ...newGroup, ihType: "GROUP" as const, members: [] },
+            { ...newGroup, ihType: "GROUP" as const, members: [], _count: { items: 0 } },
         ]);
         
         // Auto-select the newly created group if requested
@@ -226,13 +227,6 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess, 
                                 const assignableRoles = actorRole 
                                     ? getAssignableRoles(actorRole)
                                     : [UserRole.REQUESTER, UserRole.IH, UserRole.LOGS];
-                                
-                                const roleLabels: Record<UserRole, string> = {
-                                    [UserRole.REQUESTER]: "Requester",
-                                    [UserRole.IH]: "IH (Item Holder)",
-                                    [UserRole.LOGS]: "Logs",
-                                    [UserRole.ADMIN]: "Admin",
-                                };
 
                                 return (
                                     <FormItem>
@@ -249,7 +243,7 @@ export function UserFormModal({ groups, user, mode = "add", trigger, onSuccess, 
                                             <SelectContent>
                                                 {assignableRoles.map((role) => (
                                                     <SelectItem key={role} value={role}>
-                                                        {roleLabels[role]}
+                                                        {USER_ROLE_LABELS[role]}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

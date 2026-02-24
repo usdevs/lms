@@ -2,6 +2,8 @@
 
 This guide provides comprehensive instructions for using the Loan Management System to manage inventory items, process loan requests, and manage users.
 
+For the underlying **architecture** and **database schema** (User roles, IH, Item, LoanRequest, etc.), see [README.md](../README.md) and [PLAN_GUIDE.md](PLAN_GUIDE.md).
+
 ---
 
 ## Table of Contents

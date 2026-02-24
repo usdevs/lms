@@ -10,11 +10,11 @@
 import { AuthDataValidator } from '@telegram-auth/server';
 import { urlStrToAuthDataMap } from '@telegram-auth/server/utils';
 import { StatusCodes } from 'http-status-codes';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import prisma from '@/lib/prisma';
-import { createUserToken, sessionCookieOptions } from '@/lib/auth/session';
+import { setSessionCookie } from '@/lib/auth/session';
 
 const validator = new AuthDataValidator({
   botToken: process.env.TELEGRAM_BOT_TOKEN!,
@@ -34,70 +34,58 @@ export async function GET(req: Request) {
     );
   }
 
+  const telegramId = userCredentials.id.toString();
+  const profileData = {
+    firstName: userCredentials.first_name,
+    lastName: userCredentials.last_name || null,
+    photoUrl: userCredentials.photo_url || null,
+    telegramHandle: userCredentials.username || `user_${userCredentials.id}`,
+  };
+
   // Find user by telegramId first
   let user = await prisma.user.findUnique({
-    where: { telegramId: userCredentials.id.toString() },
+    where: { telegramId },
   });
 
-  if (user === null && userCredentials.username) {
+  if (user) {
+    // Found by telegramId — update profile
+    user = await prisma.user.update({
+      where: { userId: user.userId },
+      data: profileData,
+    });
+    console.log(`Updated existing user: ${user.firstName} (${user.userId})`);
+  } else if (userCredentials.username) {
     // Fallback: try to find by telegramHandle (for pre-created users)
     user = await prisma.user.findUnique({
       where: { telegramHandle: userCredentials.username },
     });
-
     if (user) {
-      // Link the existing user by updating their telegramId
+      // Link existing user — set telegramId and refresh profile
       user = await prisma.user.update({
         where: { userId: user.userId },
-        data: {
-          telegramId: userCredentials.id.toString(),
-          firstName: userCredentials.first_name,
-          lastName: userCredentials.last_name || null,
-          photoUrl: userCredentials.photo_url || null,
-          updatedAt: new Date(),
-        },
+        data: { telegramId, ...profileData },
       });
-
       console.log(`Linked existing user by handle: ${user.firstName} (${user.userId})`);
     }
   }
 
-  if (user === null) {
+  if (!user) {
     // Create new user
     user = await prisma.user.create({
       data: {
-        telegramId: userCredentials.id.toString(),
-        telegramHandle: userCredentials.username || `user_${userCredentials.id}`,
-        firstName: userCredentials.first_name,
-        lastName: userCredentials.last_name || null,
-        photoUrl: userCredentials.photo_url || null,
-        role: 'REQUESTER', // Default role for new users
+        telegramId,
+        telegramHandle: profileData.telegramHandle,
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        photoUrl: profileData.photoUrl,
+        role: 'REQUESTER',
       },
     });
-
     console.log(`Created new user: ${user.firstName} (${user.userId})`);
-  } else if (user.telegramId === userCredentials.id.toString()) {
-    // Update existing user's profile data (found by telegramId)
-    user = await prisma.user.update({
-      where: { userId: user.userId },
-      data: {
-        telegramHandle: userCredentials.username || `user_${userCredentials.id}`,
-        firstName: userCredentials.first_name,
-        lastName: userCredentials.last_name || null,
-        photoUrl: userCredentials.photo_url || null,
-        updatedAt: new Date(),
-      },
-    });
-
-    console.log(`Updated existing user: ${user.firstName} (${user.userId})`);
   }
 
   // Create JWT token
-  const token = await createUserToken(user.userId);
-
-  // Set session cookie
-  const cookieStore = await cookies();
-  cookieStore.set('auth-token', token, sessionCookieOptions);
+  await setSessionCookie(user.userId);
 
   // Redirect back to the referring page or home
   const headersList = await headers();
