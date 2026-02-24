@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   description: "Manage NUSC Logistics Inventory",
 };
 
+// Required: Navbar uses getSession() which reads cookies — routes must be dynamic
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{
