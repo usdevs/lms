@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
 }
 
 // Authentication & Authorization Models
@@ -96,6 +98,7 @@ model Item {
   itemRemarks      String?          @map("item_remarks")
   itemUnloanable   Boolean          @default(false) @map("item_unloanable")
   itemExpendable   Boolean          @default(false) @map("item_expendable")
+  itemEmbedding    Unsupported("vector(384)")? @map("item_embedding")
   sloc             Sloc             @relation("ItemSloc", fields: [itemSloc], references: [slocId], onDelete: Cascade, onUpdate: Cascade)
   ih               IH               @relation("ItemIH", fields: [itemIh], references: [ihId], onDelete: Cascade, onUpdate: Cascade)
   loanDetails      LoanItemDetail[]

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-
+import { pipeline } from '@xenova/transformers';
 import prisma from "@/lib/prisma";
 import { formDataToObject } from "@/lib/utils";
 import {
@@ -15,6 +15,29 @@ import { ItemPaginationParams, PaginatedItemsResponse } from "../types/items";
 import { uploadImage, deleteImage } from "../storage";
 import { getSession } from "@/lib/auth/session";
 import { canManageItems } from "@/lib/auth/rbac";
+
+//creates the instance of the AI
+class EmbeddingPipeline {
+  static task = "feature-extraction" as const;
+  static model = "Xenova/all-MiniLM-L6-v2";
+  static instance: any = null;
+
+  static async getInstance() {
+    if (this.instance === null) {
+      this.instance = await pipeline(this.task, this.model);
+    }
+    return this.instance;
+  }
+}
+
+//converts the search text to a vector(384) 
+export async function generateEmbedding(text: string): Promise<number[]> {
+  if (!text || text.trim() === "") return [];
+
+  const extractor = await EmbeddingPipeline.getInstance();
+  const output = await extractor(text, { pooling: "mean", normalize: true });
+  return Array.from(output.data);
+}
 
 /**
  * Helper to check if the current user has permission to manage items
@@ -53,8 +76,8 @@ export async function createItem(formData: FormData) {
     };
   }
 
-  try {
-    await prisma.item.create({
+try {
+    const newItem = await prisma.item.create({
       data: {
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
@@ -69,6 +92,18 @@ export async function createItem(formData: FormData) {
         itemExpendable: data.itemExpendable ?? false,
       },
     });
+
+    //Generate the embedding from the item's details
+    const searchableText = `${data.itemDesc} ${data.itemRemarks || ""} ${data.itemSloc} ${data.itemIh}`.trim();
+    const embeddingVector = await generateEmbedding(searchableText);
+    const vectorString = `[${embeddingVector.join(",")}]`;
+
+    await prisma.$executeRaw`
+      UPDATE item 
+      SET item_embedding = ${vectorString}::vector 
+      WHERE item_id = ${newItem.itemId}
+    `;
+
   } catch (error) {
     console.error("Error creating item:", error);
 
@@ -153,6 +188,18 @@ export async function updateItem(itemId: number, formData: FormData) {
         itemExpendable: data.itemExpendable ?? false,
       },
     });
+    
+    //create new embedded vector
+    const searchableText = `${data.itemDesc} ${data.itemRemarks || ""} ${data.itemSloc} ${data.itemIh}`.trim();
+    const embeddingVector = await generateEmbedding(searchableText);
+    const vectorString = `[${embeddingVector.join(",")}]`;
+
+    await prisma.$executeRaw`
+      UPDATE item 
+      SET item_embedding = ${vectorString}::vector 
+      WHERE item_id = ${itemId}
+    `;
+
   } catch (error) {
     console.error("Error updating item:", error);
 
@@ -251,30 +298,68 @@ export async function deleteItem(itemId: number) {
   return { success: true };
 }
 
-export async function getItemsPaginated(params: ItemPaginationParams): Promise<PaginatedItemsResponse> {
+export async function getItemsPaginated(params: {
+  page: number;
+  limit: number;
+  search?: string;
+  slocId?: string;
+  ihId?: string;
+  sort?: string;
+  asc?: boolean;
+}) {
   try {
+    const conditions: any[] = [];
     const skip = (params.page - 1) * params.limit;
 
-    // Build where clause for filters with proper typing
-    const conditions: Prisma.ItemWhereInput[] = [];
-
+    // --- 1. SEARCH LOGIC ---
     if (params.search) {
-      const searchConditions: Prisma.ItemWhereInput[] = [
-        { itemDesc: { contains: params.search, mode: "insensitive" } },
-        { itemRemarks: { contains: params.search, mode: "insensitive" } },
-        { sloc: { slocName: { contains: params.search, mode: "insensitive" } } },
-        { ih: { ihName: { contains: params.search, mode: "insensitive" } } },
-      ];
+      try {
+        const queryVector = await generateEmbedding(params.search);
+        const vectorString = `[${queryVector.join(",")}]`;
 
-      // Only search by itemId if the search string is a valid number
-      const itemIdNumber = parseInt(params.search, 10);
-      if (!isNaN(itemIdNumber) && itemIdNumber.toString() === params.search.trim()) {
-        searchConditions.push({ itemId: { equals: itemIdNumber } });
+        const semanticResults = await prisma.$queryRaw<{ itemId: number; distance: number }[]>`
+          SELECT item_id as "itemId", 
+                 item_embedding <=> ${vectorString}::vector as distance
+          FROM item
+          WHERE item_embedding IS NOT NULL
+          ORDER BY distance ASC
+          LIMIT 50
+        `;
+        
+        // shows the distance of each item in the catalouge to the search result. 
+        // semanticResults.forEach(r => console.log(`ID: ${r.itemId} | Distance: ${r.distance.toFixed(4)}`));
+        
+        //currently an r distance of  0.65 was chosen to determine how close the items to the search result
+        const aiIds = semanticResults
+          .filter((r) => r.distance < 0.65)
+          .map((r) => r.itemId);
+
+        const searchWords = params.search.split(/\s+/).filter((w) => w.length > 1);
+        let exactIds: number[] = [];
+        
+        //If multiple words are used shows the results that are similar to each individual word
+        if (searchWords.length > 0) {
+          const exactMatchItems = await prisma.item.findMany({
+            where: {
+              OR: searchWords.map((word) => ({
+                itemDesc: { contains: word, mode: 'insensitive' }
+              })),
+            },
+            select: { itemId: true },
+          });
+          exactIds = exactMatchItems.map((item) => item.itemId);
+        }
+        
+        //collects the ids that match the exact search result and the semantic search 
+        const combinedIds = Array.from(new Set([...aiIds, ...exactIds]));
+        if (combinedIds.length === 0) {
+          conditions.push({ itemId: -1 });
+        } else {
+          conditions.push({ itemId: { in: combinedIds } });
+        }
+      } catch (err) {
+        console.error("Internal search error:", err);
       }
-
-      conditions.push({
-        OR: searchConditions,
-      });
     }
 
     if (params.slocId) {
@@ -285,7 +370,6 @@ export async function getItemsPaginated(params: ItemPaginationParams): Promise<P
       conditions.push({ itemIh: params.ihId });
     }
 
-    // Build where clause
     const where: Prisma.ItemWhereInput =
       conditions.length > 0 ? { AND: conditions } : {};
 
@@ -444,3 +528,4 @@ export async function uploadItemImage(formData: FormData): Promise<{ url: string
     return { error: "Failed to upload file" };
   }
 }
+
