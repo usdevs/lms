@@ -28,11 +28,11 @@ export default async function LoanDashboardPage() {
   const items = await getItems();
 
   return (
-    <div className="min-h-screen w-full bg-[#0C2C47] p-8">
+    <div className="min-h-screen w-full bg-[#0C2C47] p-4 md:p-8">
       <DashboardNav userRole={session.user.role} />
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6 md:mb-8">
         <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Loans</h1>
+          <h1 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-2">Loans</h1>
           <p className="text-white/80">{loans.length} LOAN REQUESTS</p>
         </div>
 
@@ -43,7 +43,7 @@ export default async function LoanDashboardPage() {
         />
       </div>
 
-      <div className="bg-white rounded-lg p-6 shadow-sm">
+      <div className="bg-white rounded-lg p-3 md:p-6 shadow-sm">
         <LoansTable data={loans} items={items} />
       </div>
     </div>

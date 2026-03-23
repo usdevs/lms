@@ -145,32 +145,33 @@ export function GroupsView({ groups, users, onRefresh, canManage = false }: Grou
                         <div className="flex items-center">
                             <button
                                 onClick={() => toggleGroup(group.ihId)}
-                                className="flex-1 flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left min-w-0"
+                                className="flex-1 flex items-center justify-between p-3 md:p-4 hover:bg-muted/50 transition-colors text-left min-w-0"
                             >
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 md:gap-3 min-w-0">
                                     {isExpanded ? (
-                                        <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+                                        <ChevronDown className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground shrink-0" />
                                     ) : (
-                                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                                        <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground shrink-0" />
                                     )}
                                     <div className="flex items-center gap-2 min-w-0">
-                                        <Users className="h-5 w-5 text-muted-foreground shrink-0" />
-                                        <span className="font-medium truncate">{group.ihName}</span>
+                                        <Users className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground shrink-0" />
+                                        <span className="font-medium truncate text-sm md:text-base">{group.ihName}</span>
                                     </div>
-                                    <Badge variant="outline" className="text-xs shrink-0">
+                                    <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
                                         {group.ihType}
                                     </Badge>
                                 </div>
-                                <div className="flex items-center gap-3 shrink-0 ml-2">
+                                <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-2">
                                     {primaryMember && (
-                                        <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                        <span className="text-xs md:text-sm text-muted-foreground items-center gap-1 hidden sm:flex">
                                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                                             {primaryMember.user.firstName}
                                             {primaryMember.user.lastName ? ` ${primaryMember.user.lastName}` : ""}
                                         </span>
                                     )}
-                                    <Badge variant="secondary">
-                                        {group.members.length} member{group.members.length !== 1 ? "s" : ""}
+                                    <Badge variant="secondary" className="text-xs">
+                                        {group.members.length}
+                                        <span className="hidden sm:inline"> member{group.members.length !== 1 ? "s" : ""}</span>
                                     </Badge>
                                 </div>
                             </button>
@@ -262,22 +263,22 @@ export function GroupsView({ groups, users, onRefresh, canManage = false }: Grou
                                             return (
                                                 <div
                                                     key={member.userId}
-                                                    className="flex items-center justify-between p-3 hover:bg-muted/30"
+                                                    className="flex items-center justify-between p-2.5 md:p-3 hover:bg-muted/30"
                                                 >
-                                                    <div className="flex items-center gap-3">
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-medium">
+                                                    <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="font-medium text-sm md:text-base">
                                                                     {fullName}
                                                                 </span>
                                                                 {member.isPrimary && (
                                                                     <Badge className="bg-yellow-100 text-yellow-800 text-xs">
                                                                         <Star className="h-3 w-3 mr-1 fill-yellow-600" />
-                                                                        Primary POC
+                                                                        <span className="hidden sm:inline">Primary </span>POC
                                                                     </Badge>
                                                                 )}
                                                             </div>
-                                                            <div className="text-sm text-muted-foreground">
+                                                            <div className="text-xs md:text-sm text-muted-foreground truncate">
                                                                 @{member.user.telegramHandle}
                                                             </div>
                                                         </div>
@@ -387,7 +388,7 @@ function AddMemberPopover({
             <PopoverTrigger asChild disabled={disabled}>
                 {resolvedTrigger}
             </PopoverTrigger>
-            <PopoverContent className="w-[280px] p-0 translate-x-[4.75rem]" align="end">
+            <PopoverContent className="w-[280px] p-0" align="end">
                 <Command>
                     <CommandInput placeholder="Search users..." />
                     <CommandList>

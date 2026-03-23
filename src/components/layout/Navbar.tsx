@@ -4,11 +4,20 @@ import { getSession } from '@/lib/auth/session';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { DevRoleDropdown } from '@/components/auth/DevRoleDropdown';
+import { MobileNav } from './MobileNav';
 
 export async function Navbar() {
   const session = await getSession();
   const botUsername = process.env.TELEGRAM_BOT_USERNAME;
   const isDev = process.env.NODE_ENV === 'development';
+
+  const authContent = isDev ? (
+    <DevRoleDropdown currentRole={session?.user?.role} />
+  ) : session ? (
+    <UserMenu user={session.user} />
+  ) : (
+    botUsername && <LoginModal botUsername={botUsername} />
+  );
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white shadow-lg">
@@ -19,16 +28,15 @@ export async function Navbar() {
           NUSC LMS
         </Link>
 
-        {/* Dev role dropdown (local only) | User Menu or Login */}
-        <div className="flex items-center gap-4">
-          {isDev ? (
-            <DevRoleDropdown currentRole={session?.user?.role} />
-          ) : session ? (
-            <UserMenu user={session.user} />
-          ) : (
-            botUsername && <LoginModal botUsername={botUsername} />
-          )}
+        {/* Desktop auth controls */}
+        <div className="hidden md:flex items-center gap-4">
+          {authContent}
         </div>
+
+        {/* Mobile menu */}
+        <MobileNav>
+          {authContent}
+        </MobileNav>
       </div>
     </nav>
   );

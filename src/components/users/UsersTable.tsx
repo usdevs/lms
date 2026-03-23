@@ -130,141 +130,210 @@ export function UsersTable({ users, groups, onRefresh, canManage = false, actorR
         );
     }
 
-    return (
-        <div className="rounded-lg border bg-white overflow-hidden">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Telegram</TableHead>
-                        <TableHead>NUSNET</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Groups</TableHead>
-                        {canManage && <TableHead className="text-right">Actions</TableHead>}
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {users.map((user) => (
-                        <TableRow key={user.userId}>
-                            <TableCell className="font-medium">
-                                {getFullName(user)}
-                            </TableCell>
-                            <TableCell>
-                                <span className="text-muted-foreground">@</span>
-                                {user.telegramHandle}
-                            </TableCell>
-                            <TableCell>
-                                {user.nusnetId || (
-                                    <span className="text-muted-foreground">-</span>
+    const DeleteButton = ({ user }: { user: UserWithDetails }) => (
+        <TooltipProvider>
+            <Tooltip>
+                <AlertDialog
+                    open={deleteDialogOpen && deletingId === user.userId}
+                    onOpenChange={(open) => {
+                        if (!isDeleting) {
+                            setDeleteDialogOpen(open);
+                            if (open) setDeletingId(user.userId);
+                        }
+                    }}
+                >
+                    <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <span tabIndex={canDeleteUser(user) ? -1 : 0}>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive hover:text-destructive disabled:text-muted-foreground"
+                                    disabled={!canDeleteUser(user)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </span>
+                        </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete User</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete{" "}
+                                <strong>{getFullName(user)}</strong>? This action
+                                cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                            <Button
+                                onClick={() => handleDelete(user.userId)}
+                                disabled={isDeleting}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                {isDeleting ? (
+                                    <div className="flex items-center gap-2">
+                                        <Spinner className="size-4" />
+                                        <span>Deleting...</span>
+                                    </div>
+                                ) : (
+                                    "Delete"
                                 )}
-                            </TableCell>
-                            <TableCell>
+                            </Button>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                <TooltipContent>
+                    <p>{getDeleteDisabledReason(user)}</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+
+    return (
+        <>
+            {/* Desktop Table */}
+            <div className="hidden md:block rounded-lg border bg-white overflow-hidden">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Telegram</TableHead>
+                            <TableHead>NUSNET</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Groups</TableHead>
+                            {canManage && <TableHead className="text-right">Actions</TableHead>}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {users.map((user) => (
+                            <TableRow key={user.userId}>
+                                <TableCell className="font-medium">
+                                    {getFullName(user)}
+                                </TableCell>
+                                <TableCell>
+                                    <span className="text-muted-foreground">@</span>
+                                    {user.telegramHandle}
+                                </TableCell>
+                                <TableCell>
+                                    {user.nusnetId || (
+                                        <span className="text-muted-foreground">-</span>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    <Badge
+                                        variant="secondary"
+                                        className={roleColors[user.role] || ""}
+                                    >
+                                        {user.role}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>
+                                    {getUserGroups(user).length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                            {getUserGroups(user).slice(0, 2).map((group) => (
+                                                <Badge
+                                                    key={group.ihId}
+                                                    variant="outline"
+                                                    className="text-xs"
+                                                >
+                                                    {group.ihName}
+                                                </Badge>
+                                            ))}
+                                            {getUserGroups(user).length > 2 && (
+                                                <Badge variant="outline" className="text-xs">
+                                                    +{getUserGroups(user).length - 2}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <span className="text-muted-foreground">-</span>
+                                    )}
+                                </TableCell>
+                                {canManage && (
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-1">
+                                            {canEditUser(user) && (
+                                                <UserFormModal
+                                                    user={user}
+                                                    groups={groups}
+                                                    mode="edit"
+                                                    onSuccess={onRefresh}
+                                                    actorRole={actorRole}
+                                                />
+                                            )}
+                                            <DeleteButton user={user} />
+                                        </div>
+                                    </TableCell>
+                                )}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+                {users.map((user) => {
+                    const userGroups = getUserGroups(user);
+                    return (
+                        <div key={user.userId} className="rounded-lg border bg-white p-4">
+                            {/* Name + Role */}
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="min-w-0">
+                                    <div className="font-medium text-sm">{getFullName(user)}</div>
+                                    <div className="text-xs text-muted-foreground">@{user.telegramHandle}</div>
+                                </div>
                                 <Badge
                                     variant="secondary"
-                                    className={roleColors[user.role] || ""}
+                                    className={`${roleColors[user.role] || ""} shrink-0`}
                                 >
                                     {user.role}
                                 </Badge>
-                            </TableCell>
-                            <TableCell>
-                                {getUserGroups(user).length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                        {getUserGroups(user).slice(0, 2).map((group) => (
-                                            <Badge
-                                                key={group.ihId}
-                                                variant="outline"
-                                                className="text-xs"
-                                            >
-                                                {group.ihName}
-                                            </Badge>
-                                        ))}
-                                        {getUserGroups(user).length > 2 && (
-                                            <Badge variant="outline" className="text-xs">
-                                                +{getUserGroups(user).length - 2}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <span className="text-muted-foreground">-</span>
-                                )}
-                            </TableCell>
-                            {canManage && (
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end gap-1">
-                                        {canEditUser(user) && (
-                                            <UserFormModal
-                                                user={user}
-                                                groups={groups}
-                                                mode="edit"
-                                                onSuccess={onRefresh}
-                                                actorRole={actorRole}
-                                            />
-                                        )}
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <AlertDialog
-                                                    open={deleteDialogOpen && deletingId === user.userId}
-                                                    onOpenChange={(open) => {
-                                                        if (!isDeleting) {
-                                                            setDeleteDialogOpen(open);
-                                                            if (open) setDeletingId(user.userId);
-                                                        }
-                                                    }}
-                                                >
-                                                    <TooltipTrigger asChild>
-                                                        <AlertDialogTrigger asChild>
-                                                            <span tabIndex={canDeleteUser(user) ? -1 : 0}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8 text-destructive hover:text-destructive disabled:text-muted-foreground"
-                                                                    disabled={!canDeleteUser(user)}
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </span>
-                                                        </AlertDialogTrigger>
-                                                    </TooltipTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Delete User</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                Are you sure you want to delete{" "}
-                                                                <strong>{getFullName(user)}</strong>? This action
-                                                                cannot be undone.
-                                                            </AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                                                            <Button
-                                                                onClick={() => handleDelete(user.userId)}
-                                                                disabled={isDeleting}
-                                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                            >
-                                                                {isDeleting ? (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Spinner className="size-4" />
-                                                                        <span>Deleting...</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    "Delete"
-                                                                )}
-                                                            </Button>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
-                                                <TooltipContent>
-                                                    <p>{getDeleteDisabledReason(user)}</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    </div>
-                                </TableCell>
+                            </div>
+
+                            {/* NUSNET */}
+                            {user.nusnetId && (
+                                <div className="text-xs text-muted-foreground mb-2">
+                                    NUSNET: {user.nusnetId}
+                                </div>
                             )}
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
+
+                            {/* Groups */}
+                            {userGroups.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                    {userGroups.map((group) => (
+                                        <Badge
+                                            key={group.ihId}
+                                            variant="outline"
+                                            className="text-xs"
+                                        >
+                                            {group.ihName}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            {canManage && (
+                                <div className="flex gap-1 pt-2 border-t mt-2">
+                                    {canEditUser(user) && (
+                                        <UserFormModal
+                                            user={user}
+                                            groups={groups}
+                                            mode="edit"
+                                            onSuccess={onRefresh}
+                                            actorRole={actorRole}
+                                        />
+                                    )}
+                                    <DeleteButton user={user} />
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </>
     );
 }

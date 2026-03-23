@@ -171,11 +171,11 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
   }, [fetchItems]);
 
   return (
-    <div className="min-h-screen w-full bg-[#0C2C47] p-8">
+    <div className="min-h-screen w-full bg-[#0C2C47] p-4 md:p-8">
       <DashboardNav userRole={userRole} />
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 md:mb-8 flex items-center justify-between">
         <div>
-          <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
+          <h1 className="mb-1 md:mb-2 text-2xl md:text-4xl font-bold text-white">Catalogue</h1>
           <p className="text-white/80">{totalItems} ITEMS</p>
         </div>
         {canEdit && (
@@ -183,8 +183,8 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
         )}
       </div>
 
-      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="relative w-full max-w-md">
+      <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+        <div className="relative w-full md:max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             ref={searchInputRef}
@@ -205,38 +205,39 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
             </button>
           )}
         </div>
-      <div className="flex gap-3 flex-wrap">
-      
+      <div className="flex gap-2 md:gap-3 flex-wrap">
+
       {/*Reset Filters Button - only show when filters are active */}
       {hasActiveFilters && (
         <button
            onClick={resetFilters}
-           className="h-9 rounded-md bg-white/20 px-4 text-white hover:bg-white/30 transition-colors flex items-center gap-2"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-3 md:px-4 text-sm text-white hover:bg-white/30 transition-colors flex items-center gap-1.5"
          >
-           <RotateCcw className="h-4 w-4" />
-           Reset Filters
+           <RotateCcw className="h-3.5 w-3.5" />
+           <span className="hidden sm:inline">Reset Filters</span>
+           <span className="sm:hidden">Reset</span>
         </button>
       )}
 
       <select
            value={filterSlocId}
            onChange={(e) => setFilterSlocId(e.target.value)}
-           className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-2 md:px-3 text-sm text-white border border-white/20 focus:outline-none"
          >
-           <option value="" className="text-black">All Locations</option>  {/*Default*/}
+           <option value="" className="text-black">All Locations</option>
            {slocs.map((s) => (
              <option key={s.slocId} value={s.slocId} className="text-black">
                {s.slocName}
              </option>
            ))}
          </select>
-      
+
       <select
            value={filterIhId}
            onChange={(e) => setFilterIhId(e.target.value)}
-           className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-2 md:px-3 text-sm text-white border border-white/20 focus:outline-none"
          >
-           <option value="" className="text-black">All Holders</option>  {/*Default*/}
+           <option value="" className="text-black">All Holders</option>
            {ihs.map((h) => (
              <option key={h.ihId} value={h.ihId} className="text-black">
                {h.ihName}
@@ -247,19 +248,19 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
       <select
            value={sortOption}
            onChange={(e) => setSortOption(e.target.value as SortOption)}
-           className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-2 md:px-3 text-sm text-white border border-white/20 focus:outline-none"
          >
-           <option value="name" className="text-black">Sort by Item Name</option>
-           <option value="quantity" className="text-black">Sort by Quantity</option>
-           <option value="id" className="text-black">Sort by ID</option>
+           <option value="name" className="text-black">Sort: Name</option>
+           <option value="quantity" className="text-black">Sort: Qty</option>
+           <option value="id" className="text-black">Sort: ID</option>
          </select>
-      
+
         {/*Asc/Desc Button*/}
          <button
            onClick={() => {
              setSortAsc(!sortAsc);
            }}
-           className="h-9 rounded-md bg-white/20 px-4 text-white hover:bg-white/30 transition-colors"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-3 md:px-4 text-white hover:bg-white/30 transition-colors"
          >
            {sortAsc ? "▲" : "▼"}
          </button>
@@ -303,7 +304,7 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
                 
                 {/* Action buttons - appear on hover (only for LOGS+) */}
                 {canEdit && (
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <ItemFormModal
                       slocs={slocs}
                       ihs={ihs}
