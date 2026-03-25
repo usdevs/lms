@@ -56,8 +56,6 @@ model User {
   loanRequests LoanRequest[] @relation("RequesterLoanRequests")
   handledLoans LoanRequest[] @relation("LoggieLoanRequests")
 
-  deletedAt      DateTime?      @map("deleted_at") // Soft delete 
-
   @@map("user")
 }
 
@@ -71,8 +69,6 @@ model IHMember {
   user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
   ih   IH   @relation(fields: [ihId], references: [ihId], onDelete: Cascade)
 
-  deletedAt      DateTime?      @map("deleted_at") // Soft delete 
-
   @@unique([userId, ihId])
   @@map("ih_member")
 }
@@ -83,8 +79,6 @@ model IH {
   ihType      IHType           @default(INDIVIDUAL) @map("ih_type")
   members     IHMember[] // Multiple POCs via IHMember
   items       Item[]           @relation("ItemIH")
-
-  deletedAt      DateTime?      @map("deleted_at") // Soft delete 
 
   @@map("ih")
 }
@@ -106,8 +100,6 @@ model Item {
   ih               IH               @relation("ItemIH", fields: [itemIh], references: [ihId], onDelete: Cascade, onUpdate: Cascade)
   loanDetails      LoanItemDetail[]
 
-  deletedAt      DateTime?      @map("deleted_at") // Soft delete 
-
   @@map("item")
 }
 
@@ -119,8 +111,6 @@ model LoanItemDetail {
   loanItemStatus    LoanItemStatus   @default(PENDING) @map("loan_status")
   loanRequest       LoanRequest      @relation(fields: [refNo], references: [refNo], onDelete: Cascade, onUpdate: Cascade)
   item              Item             @relation(fields: [itemId], references: [itemId], onDelete: Cascade, onUpdate: Cascade)
-
-  deletedAt      DateTime?      @map("deleted_at") // Soft delete 
 
   @@map("loan_item_detail")
 }
@@ -143,8 +133,6 @@ model LoanRequest {
 
   loanDetails LoanItemDetail[]
 
-  deletedAt      DateTime?      @map("deleted_at") // Soft delete 
-
   @@map("loan_request")
 }
 
@@ -153,19 +141,5 @@ model Sloc {
   slocName    String           @map("sloc_name")
   items       Item[]           @relation("ItemSloc")
 
-  deletedAt      DateTime?      @map("deleted_at") // Soft delete 
-
   @@map("sloc")
 }
-
-// Audit Log 
-model AuditLog {
-  id        Int           @id @default(autoincrement())
-  action    String        // CREATE or UPDATE or DELETE
-  model     String        
-  recordId  Int?
-  userId    Int?
-  timestamp DateTime @default(now())
-
-  @@map("audit_log")
-} 
