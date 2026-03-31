@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { format } from "date-fns";
 import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search, Trash2, Package, Calendar } from "lucide-react";
 import { toast } from "sonner";
@@ -51,9 +51,11 @@ type FilterStatus = "ALL" | LoanRequestStatus;
 interface LoansTableProps {
   data: LoanWithDetails[];
   items: ItemOption[];
+  autoOpenRefNo?: number | null;
+  onAutoOpened?: () => void;
 }
 
-export function LoansTable({ data, items }: LoansTableProps) {
+export function LoansTable({ data, items, autoOpenRefNo, onAutoOpened }: LoansTableProps) {
   const [selectedLoan, setSelectedLoan] = useState<LoanWithDetails | null>(null);
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
@@ -61,6 +63,17 @@ export function LoansTable({ data, items }: LoansTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingRefNo, setDeletingRefNo] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Auto-open a loan detail dialog when requested (e.g. after creation)
+  useEffect(() => {
+    if (autoOpenRefNo != null) {
+      const loan = data.find(l => l.refNo === autoOpenRefNo);
+      if (loan) {
+        setSelectedLoan(loan);
+        onAutoOpened?.();
+      }
+    }
+  }, [autoOpenRefNo, data, onAutoOpened]);
 
   // Helper to check if a loan item has insufficient stock for approval
   const getItemAvailability = (itemId: number, requestedQty: number) => {

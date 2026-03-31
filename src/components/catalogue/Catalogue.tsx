@@ -1,9 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, RotateCcw, X, Pencil, Ban, Package } from "lucide-react";
+import { Search, RotateCcw, X, Pencil, Ban, Package, ImageIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import ItemFormModal from "./ItemFormModal";
@@ -163,6 +170,9 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
     sortOption !== defaultFilters.sortOption ||
     sortAsc !== defaultFilters.sortAsc;
 
+  // Selected item for mobile detail dialog
+  const [selectedItem, setSelectedItem] = useState<EnrichedItemView | null>(null);
+
   // Refresh items after create/update/delete (preserves current filters)
   const refreshItems = useCallback(() => {
     setPage(1);
@@ -281,7 +291,9 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <>
+        {/* Desktop grid — full cards with images */}
+        <div className="hidden sm:grid grid-cols-2 gap-5 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {items.map((item) => (
             <div
               key={item.itemId}
@@ -301,10 +313,10 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
                     <span className="text-gray-400 text-sm">No Image</span>
                   </div>
                 )}
-                
+
                 {/* Action buttons - appear on hover (only for LOGS+) */}
                 {canEdit && (
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <ItemFormModal
                       slocs={slocs}
                       ihs={ihs}
@@ -361,7 +373,7 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
                 <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2">
                   {item.itemDesc}
                 </h3>
-                
+
                 <div className="text-xs text-gray-500 space-y-0.5 mb-4">
                   <p className="truncate">{item.sloc.slocName}</p>
                   <p className="truncate">
@@ -388,6 +400,174 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
             </div>
           ))}
         </div>
+
+        {/* Mobile grid — compact cards without images, 2 per row */}
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+          {items.map((item) => (
+            <div
+              key={item.itemId}
+              className="relative flex flex-col rounded-lg bg-white overflow-hidden shadow-sm active:shadow-md transition-shadow p-3"
+              onClick={() => setSelectedItem(item)}
+            >
+              {/* Badges row */}
+              {(item.itemUnloanable || item.itemExpendable) && (
+                <div className="flex gap-1 mb-1.5">
+                  {item.itemUnloanable && (
+                    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded">
+                      <Ban className="h-2.5 w-2.5" />
+                      Unloanable
+                    </span>
+                  )}
+                  {item.itemExpendable && (
+                    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded">
+                      <Package className="h-2.5 w-2.5" />
+                      Expendable
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Title */}
+              <h3 className="text-xs font-semibold text-gray-900 line-clamp-2 mb-1">
+                {item.itemDesc}
+              </h3>
+
+              {/* Location */}
+              <p className="text-[10px] text-gray-500 truncate mb-2">{item.sloc.slocName}</p>
+
+              {/* Quantity + image indicator */}
+              <div className="flex items-center justify-between mt-auto">
+                <div className="flex items-baseline gap-1">
+                  <span className={cn(
+                    "text-base font-semibold",
+                    item.availableQty > 0 ? "text-green-600" : "text-destructive"
+                  )}>
+                    {item.availableQty}
+                  </span>
+                  <span className="text-gray-400 text-xs">/ {item.totalQty}</span>
+                </div>
+                {item.itemImage && (
+                  <ImageIcon className="h-3.5 w-3.5 text-gray-300" />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Mobile item detail dialog */}
+        <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
+          <DialogContent className="max-w-sm w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-0">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{selectedItem?.itemDesc}</DialogTitle>
+              <DialogDescription>Item details</DialogDescription>
+            </DialogHeader>
+
+            {selectedItem && (
+              <>
+                {/* Image */}
+                <div className="w-full aspect-square bg-gray-100 relative">
+                  {selectedItem.itemImage ? (
+                    <img
+                      src={selectedItem.itemImage}
+                      alt={selectedItem.itemDesc}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-gray-400">No Image</span>
+                    </div>
+                  )}
+                  {/* Edit/delete actions overlay */}
+                  {canEdit && (
+                    <div className="absolute top-3 right-3 flex gap-1">
+                      <ItemFormModal
+                        slocs={slocs}
+                        ihs={ihs}
+                        mode="edit"
+                        item={{
+                          itemId: selectedItem.itemId,
+                          itemDesc: selectedItem.itemDesc,
+                          itemQty: selectedItem.itemQty,
+                          itemUom: selectedItem.itemUom,
+                          itemSloc: selectedItem.itemSloc,
+                          itemIh: selectedItem.itemIh,
+                          itemRemarks: selectedItem.itemRemarks,
+                          itemPurchaseDate: selectedItem.itemPurchaseDate,
+                          itemRfpNumber: selectedItem.itemRfpNumber,
+                          itemImage: selectedItem.itemImage,
+                          itemUnloanable: selectedItem.itemUnloanable,
+                          itemExpendable: selectedItem.itemExpendable,
+                        }}
+                        trigger={
+                          <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/90 hover:bg-white shadow-sm">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        }
+                        onSuccess={() => { refreshItems(); setSelectedItem(null); }}
+                      />
+                      <DeleteItemButton
+                        itemId={Number(selectedItem.itemId)}
+                        itemDesc={selectedItem.itemDesc}
+                        onDelete={() => { refreshItems(); setSelectedItem(null); }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Details */}
+                <div className="p-4 space-y-3">
+                  {/* Badges */}
+                  {(selectedItem.itemUnloanable || selectedItem.itemExpendable) && (
+                    <div className="flex gap-1.5">
+                      {selectedItem.itemUnloanable && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
+                          <Ban className="h-3 w-3" />
+                          Unloanable
+                        </span>
+                      )}
+                      {selectedItem.itemExpendable && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+                          <Package className="h-3 w-3" />
+                          Expendable
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <h2 className="text-base font-semibold text-gray-900">{selectedItem.itemDesc}</h2>
+
+                  <div className="text-sm text-gray-500 space-y-1">
+                    <p>{selectedItem.sloc.slocName}</p>
+                    <p>
+                      {selectedItem.ih.ihName}
+                      {selectedItem.ih.members?.[0]?.user?.telegramHandle && (
+                        <span className="text-gray-400"> (@{selectedItem.ih.members[0].user.telegramHandle})</span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="flex items-baseline gap-1.5">
+                    <span className={cn(
+                      "text-2xl font-semibold",
+                      selectedItem.availableQty > 0 ? "text-green-600" : "text-destructive"
+                    )}>
+                      {selectedItem.availableQty}
+                    </span>
+                    <span className="text-gray-400 text-sm">/</span>
+                    <span className="text-gray-600 text-sm">{selectedItem.totalQty}</span>
+                    <span className="text-gray-400 text-xs ml-1">available</span>
+                  </div>
+
+                  {selectedItem.itemRemarks && (
+                    <p className="text-sm text-gray-500 italic">{selectedItem.itemRemarks}</p>
+                  )}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+        </>
       )}
 
       {/* Infinite scroll sentinel - triggers loading when scrolled into view */}

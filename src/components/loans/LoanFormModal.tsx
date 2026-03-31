@@ -58,14 +58,16 @@ interface LoanFormModalProps {
     loan?: LoanWithDetails;
     mode?: "add" | "edit";
     trigger?: React.ReactNode;
+    onCreated?: (refNo: number) => void;
 }
 
-export function LoanFormModal({ 
-    items, 
-    requesters = [], 
-    loan, 
+export function LoanFormModal({
+    items,
+    requesters = [],
+    loan,
     mode = "add",
-    trigger 
+    trigger,
+    onCreated,
 }: LoanFormModalProps) {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
@@ -136,10 +138,16 @@ export function LoanFormModal({
                 const result = await createLoan(data);
                 if (result.success) {
                     toast.success("Loan created successfully");
-                    // Show success state with refNo instead of closing
-                    setCreatedLoanRefNo(result.refNo ?? null);
-                    // Clear the form so "Create Another" starts fresh
-                    form.reset(defaultValues);
+                    if (onCreated && result.refNo) {
+                        // Close modal and let parent open the detail view
+                        form.reset(defaultValues);
+                        setOpen(false);
+                        onCreated(result.refNo);
+                    } else {
+                        // Fallback: show success state with refNo
+                        setCreatedLoanRefNo(result.refNo ?? null);
+                        form.reset(defaultValues);
+                    }
                 } else {
                     toast.error(result.error || "Failed to create loan");
                 }
