@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useTransition, useMemo } from "react";
 import { format } from "date-fns";
 import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search, Trash2, Package } from "lucide-react";
 import { toast } from "sonner";
@@ -55,8 +54,6 @@ interface LoansTableProps {
 }
 
 export function LoansTable({ data, items }: LoansTableProps) {
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const [selectedLoan, setSelectedLoan] = useState<LoanWithDetails | null>(null);
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
@@ -64,19 +61,6 @@ export function LoansTable({ data, items }: LoansTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingRefNo, setDeletingRefNo] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Auto-open dialog when id search parameter is present in the URL
-  useEffect(() => {
-    const idParam = searchParams.get("id");
-    if (idParam) {
-      const loan = data.find(l => l.refNo === Number(idParam));
-      if (loan) {
-        setSelectedLoan(loan)
-      } else {
-        router.replace("/loans", { scroll: false });
-      };
-    }
-  }, [searchParams, data, router]);
 
   // Helper to check if a loan item has insufficient stock for approval
   const getItemAvailability = (itemId: number, requestedQty: number) => {
@@ -259,7 +243,7 @@ export function LoansTable({ data, items }: LoansTableProps) {
               </TableRow>
             ) : (
               filteredData.map((loan) => (
-                <TableRow key={loan.refNo} className="cursor-pointer hover:bg-muted/50" onClick={() => router.replace(`/loans?id=${loan.refNo}`, { scroll: false })}>
+                <TableRow key={loan.refNo} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLoan(loan)}>
                   <TableCell className="font-medium">#{loan.refNo}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
@@ -300,7 +284,7 @@ export function LoansTable({ data, items }: LoansTableProps) {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); router.replace(`/loans?id=${loan.refNo}`, { scroll: false }); }}>
+                            <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedLoan(loan); }}>
                               <Eye className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
@@ -375,15 +359,7 @@ export function LoansTable({ data, items }: LoansTableProps) {
       </div>
 
       {/* Details Modal */}
-      <Dialog open={!!selectedLoan} onOpenChange={(open) => {
-        if (!open) {
-          setSelectedLoan(null);
-          // Remove id search parameter from URL when dialog is closed
-          if (searchParams.has("id")) {
-            router.replace("/loans", { scroll: false });
-          }
-        }
-      }}>
+      <Dialog open={!!selectedLoan} onOpenChange={(open) => !open && setSelectedLoan(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <div className="flex justify-between items-center pr-8">
