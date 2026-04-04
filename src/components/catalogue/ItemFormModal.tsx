@@ -265,14 +265,14 @@ export default function ItemFormModal({
   const handleSlocChange = (val: SlocSelectorValue) => {
     setSlocSelectorValue(val);
     if (val && val !== "new") {
-      form.setValue("itemSloc", val);
+      form.setValue("itemSloc", val, { shouldDirty: true });
       form.clearErrors("itemSloc");
     } else if (val === "new") {
       // Set placeholder to pass validation - will be replaced with actual ID on submit
-      form.setValue("itemSloc", "__new__");
+      form.setValue("itemSloc", "__new__", { shouldDirty: true });
       form.clearErrors("itemSloc");
     } else {
-      form.setValue("itemSloc", "");
+      form.setValue("itemSloc", "", { shouldDirty: true });
     }
   };
 
