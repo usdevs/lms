@@ -67,7 +67,7 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                 }
 
                 // Normalize telegram handle: remove @ if present and convert to lowercase
-                const normalizedHandle = newRequester.telegramHandle.startsWith("@") 
+                const normalizedHandle = newRequester.telegramHandle.startsWith("@")
                     ? newRequester.telegramHandle.slice(1).toLowerCase()
                     : newRequester.telegramHandle.toLowerCase();
 
@@ -99,7 +99,6 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
 
             if (!finalReqId) throw new Error("Requester not identified");
 
-
             // Create LoanRequest
             const loanRequest = await tx.loanRequest.create({
                 data: {
@@ -113,9 +112,14 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                 }
             });
 
-            // Create LoanItemDetails (no stock deduction until approval)
+            // Fetch all requested items in one query
+            const dbItems = await tx.item.findMany({ where: { itemId: { in: items.map(i => i.itemId) } } });
+
+            const dbItemMap = new Map(dbItems.map(i => [i.itemId, i]));
+
+            // Validate all items before writing
             for (const loanItem of items) {
-                const dbItem = await tx.item.findUnique({ where: { itemId: loanItem.itemId } });
+                const dbItem = dbItemMap.get(loanItem.itemId);
                 if (!dbItem) throw new Error(`Item ${loanItem.itemId} not found`);
 
                 // Check if item is unloanable
@@ -127,23 +131,23 @@ export async function createLoan(data: z.infer<typeof CreateLoanSchema>): Promis
                 if (loanItem.loanQty > dbItem.itemQty) {
                     throw new Error(`Insufficient stock for ${dbItem.itemDesc}. Available: ${dbItem.itemQty}, Requested: ${loanItem.loanQty}`);
                 }
-
-                await tx.loanItemDetail.create({
-                    data: {
-                        refNo: loanRequest.refNo,
-                        itemId: loanItem.itemId,
-                        loanQty: loanItem.loanQty,
-                        loanItemStatus: LoanItemStatus.PENDING,
-                    }
-                });
             }
+
+            // Create all LoanItemDetails in one query (no stock deduction until approval)
+            await tx.loanItemDetail.createMany({
+                data: items.map(loanItem => ({
+                    refNo: loanRequest.refNo,
+                    itemId: loanItem.itemId,
+                    loanQty: loanItem.loanQty,
+                    loanItemStatus: LoanItemStatus.PENDING,
+                })),
+            });
 
             return loanRequest.refNo;
         });
 
         revalidatePath("/loans");
         return { success: true, refNo };
-
     } catch (e) {
         console.error("Failed to create loan:", e);
         const message = e instanceof Error ? e.message : "Failed to create loan";
@@ -168,17 +172,20 @@ export async function approveLoan(refNo: number) {
             if (!request) throw new Error("Loan request not found");
             if (request.loanRequestStatus !== LoanRequestStatus.PENDING) throw new Error("Loan is not pending");
 
+            // Fetch all on-loan quantities for the relevant items in one grouped query
+            const onLoanAggs = await tx.loanItemDetail.groupBy({
+                by: ["itemId"],
+                where: {
+                    itemId: { in: request.loanDetails.map(d => d.itemId) },
+                    loanItemStatus: LoanItemStatus.ON_LOAN,
+                },
+                _sum: { loanQty: true },
+            });
+            const onLoanMap = new Map(onLoanAggs.map(a => [a.itemId, a._sum.loanQty ?? 0]));
+
             // Check and process each item
             for (const detail of request.loanDetails) {
-                // Calculate current on-loan quantity for this item
-                const onLoanAgg = await tx.loanItemDetail.aggregate({
-                    where: {
-                        itemId: detail.itemId,
-                        loanItemStatus: LoanItemStatus.ON_LOAN
-                    },
-                    _sum: { loanQty: true }
-                });
-                const currentOnLoan = onLoanAgg._sum.loanQty || 0;
+                const currentOnLoan = onLoanMap.get(detail.itemId) ?? 0;
                 const availableQty = detail.item.itemQty - currentOnLoan;
 
                 if (detail.loanQty > availableQty) {
@@ -192,12 +199,13 @@ export async function approveLoan(refNo: number) {
                         data: { itemQty: { decrement: detail.loanQty } }
                     });
                 }
-
-                await tx.loanItemDetail.update({
-                    where: { loanDetailId: detail.loanDetailId },
-                    data: { loanItemStatus: LoanItemStatus.ON_LOAN }
-                });
             }
+
+            // Update all loan item statuses in one query
+            await tx.loanItemDetail.updateMany({
+                where: { refNo },
+                data: { loanItemStatus: LoanItemStatus.ON_LOAN }
+            });
 
             await tx.loanRequest.update({
                 where: { refNo },
@@ -295,9 +303,13 @@ export async function updateLoan(refNo: number, data: {
                 where: { refNo }
             });
 
-            // Create new loan item details
+            // Fetch all requested items in one query
+            const dbItems = await tx.item.findMany({ where: { itemId: { in: data.items.map(i => i.itemId) } } });
+            const dbItemMap = new Map(dbItems.map(i => [i.itemId, i]));
+
+            // Validate all items before writing
             for (const loanItem of data.items) {
-                const dbItem = await tx.item.findUnique({ where: { itemId: loanItem.itemId } });
+                const dbItem = dbItemMap.get(loanItem.itemId);
                 if (!dbItem) throw new Error(`Item ${loanItem.itemId} not found`);
 
                 // Check if item is unloanable
@@ -309,16 +321,17 @@ export async function updateLoan(refNo: number, data: {
                 if (loanItem.loanQty > dbItem.itemQty) {
                     throw new Error(`Insufficient stock for ${dbItem.itemDesc}. Available: ${dbItem.itemQty}, Requested: ${loanItem.loanQty}`);
                 }
-
-                await tx.loanItemDetail.create({
-                    data: {
-                        refNo,
-                        itemId: loanItem.itemId,
-                        loanQty: loanItem.loanQty,
-                        loanItemStatus: LoanItemStatus.PENDING,
-                    }
-                });
             }
+
+            // Create new loan item details in one query
+            await tx.loanItemDetail.createMany({
+                data: data.items.map(loanItem => ({
+                    refNo,
+                    itemId: loanItem.itemId,
+                    loanQty: loanItem.loanQty,
+                    loanItemStatus: LoanItemStatus.PENDING,
+                })),
+            });
         });
 
         revalidatePath("/loans");
@@ -389,7 +402,7 @@ export async function returnItem(loanDetailId: number) {
             });
 
             if (!detail) throw new Error("Loan detail not found");
-            
+
             // Only items that are ON_LOAN can be returned
             if (detail.loanItemStatus !== LoanItemStatus.ON_LOAN) {
                 if (detail.loanItemStatus === LoanItemStatus.RETURNED || detail.loanItemStatus === LoanItemStatus.RETURNED_LATE) {
@@ -418,9 +431,9 @@ export async function returnItem(loanDetailId: number) {
             });
 
             const allReturned = siblings.every(s =>
-                s.loanDetailId === loanDetailId || 
-                s.loanItemStatus === LoanItemStatus.RETURNED || 
-                s.loanItemStatus === LoanItemStatus.RETURNED_LATE || 
+                s.loanDetailId === loanDetailId ||
+                s.loanItemStatus === LoanItemStatus.RETURNED ||
+                s.loanItemStatus === LoanItemStatus.RETURNED_LATE ||
                 s.loanItemStatus === LoanItemStatus.REJECTED
             );
 
@@ -434,7 +447,6 @@ export async function returnItem(loanDetailId: number) {
             return { newStatus };
         });
 
-        // Handle already returned case
         if (result.alreadyReturned) {
             return { success: true, message: "Item was already returned" };
         }
@@ -448,4 +460,3 @@ export async function returnItem(loanDetailId: number) {
         return { success: false, error: message };
     }
 }
-
