@@ -360,8 +360,9 @@ export function LoansTable({ data, items }: LoansTableProps) {
 
       {/* Details Modal */}
       <Dialog open={!!selectedLoan} onOpenChange={(open) => !open && setSelectedLoan(null)}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl flex flex-col max-h-[90vh] overflow-hidden">
+          {/* Fixed header */}
+          <DialogHeader className="flex-shrink-0">
             <div className="flex justify-between items-center pr-8">
               <DialogTitle>Loan Details #{selectedLoan?.refNo}</DialogTitle>
               {selectedLoan && <StatusBadge status={selectedLoan.loanRequestStatus} />}
@@ -371,8 +372,8 @@ export function LoansTable({ data, items }: LoansTableProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4 text-sm bg-muted/20 p-4 rounded-md">
+          {/* Fixed metadata */}
+          <div className="flex-shrink-0 grid grid-cols-2 gap-4 text-sm bg-muted/20 p-4 rounded-md">
               <div>
                 <span className="font-semibold block text-muted-foreground">Requester</span>
                 <div className="text-lg">{selectedLoan?.requester.firstName}{selectedLoan?.requester.lastName ? ` ${selectedLoan.requester.lastName}` : ''}</div>
@@ -392,11 +393,12 @@ export function LoansTable({ data, items }: LoansTableProps) {
                   </div>
                 )}
               </div>
-            </div>
+          </div>
 
-            {/* Approval Actions */}
-            {selectedLoan?.loanRequestStatus === LoanRequestStatus.PENDING && (
-              canApproveLoan(selectedLoan) ? (
+          {/* Fixed approval actions */}
+          {selectedLoan?.loanRequestStatus === LoanRequestStatus.PENDING && (
+            <div className="flex-shrink-0">
+              {canApproveLoan(selectedLoan) ? (
                 <div className="flex gap-2 p-4 bg-blue-50/50 border border-blue-100 rounded-md items-center justify-between">
                   <div className="text-sm text-blue-800">
                     This request is <strong>Pending Approval</strong>. Approving will mark items as on loan.
@@ -416,9 +418,12 @@ export function LoansTable({ data, items }: LoansTableProps) {
                     <Button className="bg-gray-400 cursor-not-allowed" size="sm" disabled>Approve Loan</Button>
                   </div>
                 </div>
-              )
-            )}
+              )}
+            </div>
+          )}
 
+          {/* Scrollable items table */}
+          <div className="overflow-y-auto min-h-0 flex-1">
             <div className="border rounded-md">
               <Table>
                 <TableHeader>
