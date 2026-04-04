@@ -161,7 +161,7 @@ export function LoanFormModal({
 
     const addItem = (itemId: number) => {
         const current = form.getValues("items");
-        form.setValue("items", [{ itemId, loanQty: 1 }, ...current]);
+        form.setValue("items", [{ itemId, loanQty: 1 }, ...current], { shouldDirty: true });
         form.clearErrors("items");
         setJustAddedItemId(itemId);
         setTimeout(() => setJustAddedItemId(null), 1500);
@@ -172,7 +172,7 @@ export function LoanFormModal({
         const updated = [...current];
         const qty = typeof newQty === 'string' ? parseInt(newQty) : newQty;
         updated[index].loanQty = isNaN(qty) ? 0 : qty;
-        form.setValue("items", updated);
+        form.setValue("items", updated, { shouldDirty: true });
     };
 
     const validateItemQty = (index: number) => {
@@ -181,12 +181,12 @@ export function LoanFormModal({
         let qty = updated[index].loanQty;
         if (isNaN(qty) || qty < 1) qty = 1;
         updated[index].loanQty = qty;
-        form.setValue("items", updated);
+        form.setValue("items", updated, { shouldDirty: true });
     };
 
     const removeItem = (index: number) => {
         const current = form.getValues("items");
-        form.setValue("items", current.filter((_, i) => i !== index));
+        form.setValue("items", current.filter((_, i) => i !== index), { shouldDirty: true });
     };
 
     // Requester handlers (only for add mode)
