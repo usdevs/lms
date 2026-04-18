@@ -140,8 +140,8 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                 <Command>
                     <CommandInput placeholder="Search requester..." />
-                    <CommandList 
-                        className="max-h-[300px] overflow-y-auto overscroll-contain"
+                            <CommandList
+                        className="max-h-[200px] overflow-y-auto overscroll-contain"
                         onWheel={(e) => {
                             e.stopPropagation();
                             const target = e.currentTarget;
@@ -174,19 +174,19 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                                 );
                             })}
                         </CommandGroup>
-                        <CommandSeparator />
-                        <CommandGroup>
-                            <CommandItem 
-                                onSelect={() => {
-                                    onChange("new");
-                                    setOpen(false);
-                                }}
-                                className="font-normal"
-                            >
-                                <Plus className="mr-2 h-4 w-4" /> Create New Requester
-                            </CommandItem>
-                        </CommandGroup>
                     </CommandList>
+                    <CommandSeparator />
+                    <CommandGroup>
+                        <CommandItem
+                            onSelect={() => {
+                                onChange("new");
+                                setOpen(false);
+                            }}
+                            className="font-normal"
+                        >
+                            <Plus className="mr-2 h-4 w-4" /> Create New Requester
+                        </CommandItem>
+                    </CommandGroup>
                 </Command>
             </PopoverContent>
         </Popover>

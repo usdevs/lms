@@ -9,6 +9,16 @@ import { Pencil, Trash2, CheckCircle, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -72,6 +82,8 @@ export function LoanFormModal({
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [createdLoanRefNo, setCreatedLoanRefNo] = useState<number | null>(null);
+    const [justAddedItemId, setJustAddedItemId] = useState<number | null>(null);
+    const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
     const defaultValues = useMemo(() => {
         if (mode === "edit" && loan) {
@@ -157,8 +169,10 @@ export function LoanFormModal({
 
     const addItem = (itemId: number) => {
         const current = form.getValues("items");
-        form.setValue("items", [...current, { itemId, loanQty: 1 }]);
+        form.setValue("items", [{ itemId, loanQty: 1 }, ...current], { shouldDirty: true });
         form.clearErrors("items");
+        setJustAddedItemId(itemId);
+        setTimeout(() => setJustAddedItemId(null), 1500);
     };
 
     const updateItemQty = (index: number, newQty: number | string) => {
@@ -166,7 +180,7 @@ export function LoanFormModal({
         const updated = [...current];
         const qty = typeof newQty === 'string' ? parseInt(newQty) : newQty;
         updated[index].loanQty = isNaN(qty) ? 0 : qty;
-        form.setValue("items", updated);
+        form.setValue("items", updated, { shouldDirty: true });
     };
 
     const validateItemQty = (index: number) => {
@@ -175,12 +189,12 @@ export function LoanFormModal({
         let qty = updated[index].loanQty;
         if (isNaN(qty) || qty < 1) qty = 1;
         updated[index].loanQty = qty;
-        form.setValue("items", updated);
+        form.setValue("items", updated, { shouldDirty: true });
     };
 
     const removeItem = (index: number) => {
         const current = form.getValues("items");
-        form.setValue("items", current.filter((_, i) => i !== index));
+        form.setValue("items", current.filter((_, i) => i !== index), { shouldDirty: true });
     };
 
     // Requester handlers (only for add mode)
@@ -220,16 +234,27 @@ export function LoanFormModal({
         form.clearErrors("requesterId");
     };
 
-    const handleOpenChange = (newOpen: boolean) => {
-        setOpen(newOpen);
-        if (newOpen) {
-            // Reset success state when opening
-            setCreatedLoanRefNo(null);
+    const doClose = () => {
+        setOpen(false);
+        form.reset(defaultValues);
+        setCreatedLoanRefNo(null);
+    };
+
+    const handleClose = () => {
+        if (form.formState.isDirty) {
+            setShowDiscardConfirm(true);
         } else {
-            // Reset form when closing
-            form.reset(defaultValues);
-            setCreatedLoanRefNo(null);
+            doClose();
         }
+    };
+
+    const handleOpenChange = (newOpen: boolean) => {
+        if (!newOpen) {
+            handleClose();
+            return;
+        }
+        setOpen(true);
+        setCreatedLoanRefNo(null);
     };
 
     const handleCreateAnother = () => {
@@ -254,6 +279,7 @@ export function LoanFormModal({
     };
 
     return (
+        <>
         <Dialog open={open} onOpenChange={handleOpenChange}>
             {mode === "edit" ? (
                 <TooltipProvider>
@@ -463,8 +489,9 @@ export function LoanFormModal({
                                     const itemInfo = items.find(i => i.itemId === item.itemId);
                                     const totalQty = getTotalQty(item.itemId);
                                     const isOverLimit = item.loanQty > totalQty;
+                                    const isJustAdded = justAddedItemId === item.itemId;
                                     return (
-                                        <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 bg-background border rounded shadow-sm">
+                                        <div key={item.itemId} className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 border rounded shadow-sm transition-colors duration-1000 ${isJustAdded ? "bg-green-50 border-green-300" : "bg-background"}`}>
                                             <div className="flex-1 min-w-0">
                                                 <div className="font-medium text-sm truncate">{itemInfo?.itemDesc || "Unknown Item"}</div>
                                                 <div className="text-xs text-muted-foreground">
@@ -509,10 +536,10 @@ export function LoanFormModal({
                         </div>
 
                         <div className="flex justify-end gap-2">
-                            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                            <Button type="submit" disabled={isPending || hasOverLimitItems}>
-                                {isPending 
-                                    ? (mode === "edit" ? "Saving..." : "Creating...") 
+                            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+                            <Button type="submit" disabled={isPending || hasOverLimitItems || (mode === "edit" && !form.formState.isDirty)}>
+                                {isPending
+                                    ? (mode === "edit" ? "Saving..." : "Creating...")
                                     : (mode === "edit" ? "Save Changes" : "Confirm Loan")}
                             </Button>
                         </div>
@@ -522,5 +549,21 @@ export function LoanFormModal({
                 )}
             </DialogContent>
         </Dialog>
+
+        <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        You have unsaved changes that will be lost if you close.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Keep Editing</AlertDialogCancel>
+                    <AlertDialogAction onClick={doClose}>Discard Changes</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        </>
     );
 }

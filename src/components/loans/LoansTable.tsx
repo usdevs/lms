@@ -498,8 +498,9 @@ export function LoansTable({ data, items, autoOpenRefNo, onAutoOpened }: LoansTa
 
       {/* Details Modal — Item 5: responsive */}
       <Dialog open={!!selectedLoan} onOpenChange={(open) => !open && setSelectedLoan(null)}>
-        <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] flex flex-col max-h-[90vh] overflow-hidden">
+          {/* Fixed header */}
+          <DialogHeader className="flex-shrink-0">
             <div className="flex justify-between items-center pr-8">
               <DialogTitle>Loan Details #{selectedLoan?.refNo}</DialogTitle>
               {selectedLoan && <StatusBadge status={selectedLoan.loanRequestStatus} />}
@@ -509,8 +510,7 @@ export function LoansTable({ data, items, autoOpenRefNo, onAutoOpened }: LoansTa
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-muted/20 p-3 sm:p-4 rounded-md">
+          <div className="flex-shrink-0 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-muted/20 p-3 sm:p-4 rounded-md">
               <div>
                 <span className="font-semibold block text-muted-foreground">Requester</span>
                 <div className="text-base sm:text-lg">{selectedLoan?.requester.firstName}{selectedLoan?.requester.lastName ? ` ${selectedLoan.requester.lastName}` : ''}</div>
@@ -530,11 +530,12 @@ export function LoansTable({ data, items, autoOpenRefNo, onAutoOpened }: LoansTa
                   </div>
                 )}
               </div>
-            </div>
+          </div>
 
-            {/* Approval Actions */}
-            {selectedLoan?.loanRequestStatus === LoanRequestStatus.PENDING && (
-              canApproveLoan(selectedLoan) ? (
+          {/* Approval Actions */}
+          {selectedLoan?.loanRequestStatus === LoanRequestStatus.PENDING && (
+            <div className="flex-shrink-0">
+              {canApproveLoan(selectedLoan) ? (
                 <div className="flex flex-col sm:flex-row gap-2 p-3 sm:p-4 bg-blue-50/50 border border-blue-100 rounded-md sm:items-center sm:justify-between">
                   <div className="text-sm text-blue-800">
                     This request is <strong>Pending Approval</strong>. Approving will mark items as on loan.
@@ -554,10 +555,12 @@ export function LoansTable({ data, items, autoOpenRefNo, onAutoOpened }: LoansTa
                     <Button className="bg-gray-400 cursor-not-allowed" size="sm" disabled>Approve Loan</Button>
                   </div>
                 </div>
-              )
-            )}
+              )}
+            </div>
+          )}
 
-            {/* Items — desktop table */}
+          {/* Scrollable items section */}
+          <div className="overflow-y-auto min-h-0 flex-1">
             <div className="hidden sm:block border rounded-md overflow-x-auto">
               <Table>
                 <TableHeader>
