@@ -32,12 +32,12 @@ export default function ManageUsers({ users, groupIHs, userRole, canManage }: Ma
     }, [router]);
 
     return (
-        <div className="min-h-screen w-full bg-[#0C2C47] p-8">
+        <div className="min-h-screen w-full bg-[#0C2C47] p-4 md:p-8">
             <DashboardNav userRole={userRole} />
             {/* Header */}
-            <div className="mb-8 flex items-center justify-between">
+            <div className="mb-6 md:mb-8 flex items-center justify-between">
                 <div>
-                    <h1 className="mb-2 text-4xl font-bold text-white">Manage Users</h1>
+                    <h1 className="mb-1 md:mb-2 text-2xl md:text-4xl font-bold text-white">Manage Users</h1>
                     <p className="text-white/80">
                         {viewMode === "individual"
                             ? `${users.length} user${users.length !== 1 ? "s" : ""}`

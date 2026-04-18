@@ -145,3 +145,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide scrollbar for horizontal scroll containers */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

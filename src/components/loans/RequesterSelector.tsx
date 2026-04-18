@@ -82,7 +82,7 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                 className="space-y-3"
                 onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
             >
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <Label className={cn(errors?.firstName && "text-destructive")}>First Name *</Label>
                         <Input 
@@ -100,7 +100,7 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                         <Input value={newDetails.lastName} onChange={(e) => handleNewChange("lastName", e.target.value)} placeholder="Doe" />
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <Label className={cn(errors?.telegramHandle && "text-destructive")}>Telegram Handle *</Label>
                         <Input 

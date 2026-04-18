@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { format } from "date-fns";
-import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search, Trash2, Package } from "lucide-react";
+import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search, Trash2, Package, Calendar, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -51,9 +51,11 @@ type FilterStatus = "ALL" | LoanRequestStatus;
 interface LoansTableProps {
   data: LoanWithDetails[];
   items: ItemOption[];
+  autoOpenRefNo?: number | null;
+  onAutoOpened?: () => void;
 }
 
-export function LoansTable({ data, items }: LoansTableProps) {
+export function LoansTable({ data, items, autoOpenRefNo, onAutoOpened }: LoansTableProps) {
   const [selectedLoan, setSelectedLoan] = useState<LoanWithDetails | null>(null);
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
@@ -61,6 +63,17 @@ export function LoansTable({ data, items }: LoansTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingRefNo, setDeletingRefNo] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Auto-open a loan detail dialog when requested (e.g. after creation)
+  useEffect(() => {
+    if (autoOpenRefNo != null) {
+      const loan = data.find(l => l.refNo === autoOpenRefNo);
+      if (loan) {
+        setSelectedLoan(loan);
+        onAutoOpened?.();
+      }
+    }
+  }, [autoOpenRefNo, data, onAutoOpened]);
 
   // Helper to check if a loan item has insufficient stock for approval
   const getItemAvailability = (itemId: number, requestedQty: number) => {
@@ -89,14 +102,14 @@ export function LoansTable({ data, items }: LoansTableProps) {
           const updatedDetails = selectedLoan.loanDetails.map(d =>
             d.loanDetailId === detailId ? { ...d, loanItemStatus: returnedStatus } : d
           );
-          
+
           // Check if all items are now returned/rejected
-          const allReturned = updatedDetails.every(d => 
-            d.loanItemStatus === LoanItemStatus.RETURNED || 
-            d.loanItemStatus === LoanItemStatus.RETURNED_LATE || 
+          const allReturned = updatedDetails.every(d =>
+            d.loanItemStatus === LoanItemStatus.RETURNED ||
+            d.loanItemStatus === LoanItemStatus.RETURNED_LATE ||
             d.loanItemStatus === LoanItemStatus.REJECTED
           );
-          
+
           setSelectedLoan({
             ...selectedLoan,
             loanDetails: updatedDetails,
@@ -116,8 +129,8 @@ export function LoansTable({ data, items }: LoansTableProps) {
       if (result.success) {
         toast.success("Loan approved and stock deducted");
         // Update local state - keep popup open with new status
-        setSelectedLoan(prev => prev ? { 
-          ...prev, 
+        setSelectedLoan(prev => prev ? {
+          ...prev,
           loanRequestStatus: LoanRequestStatus.ONGOING,
           // Also update all item statuses to ON_LOAN
           loanDetails: prev.loanDetails.map(d => ({
@@ -138,8 +151,8 @@ export function LoansTable({ data, items }: LoansTableProps) {
       if (result.success) {
         toast.success("Loan rejected");
         // Update local state - keep popup open with new status
-        setSelectedLoan(prev => prev ? { 
-          ...prev, 
+        setSelectedLoan(prev => prev ? {
+          ...prev,
           loanRequestStatus: LoanRequestStatus.REJECTED,
           // Also update all item statuses to REJECTED
           loanDetails: prev.loanDetails.map(d => ({
@@ -171,15 +184,15 @@ export function LoansTable({ data, items }: LoansTableProps) {
     const searchLower = search.toLowerCase();
     return data.filter(loan => {
       const requesterName = `${loan.requester.firstName}${loan.requester.lastName ? ` ${loan.requester.lastName}` : ''}`;
-      
+
       // Search by requester name, NUSNET, ref no
       const matchesBasicSearch =
         requesterName.toLowerCase().includes(searchLower) ||
         (loan.requester.nusnetId && loan.requester.nusnetId.toLowerCase().includes(searchLower)) ||
         loan.refNo.toString().includes(search);
-      
+
       // Search by item name or item ID
-      const matchesItemSearch = loan.loanDetails.some(detail => 
+      const matchesItemSearch = loan.loanDetails.some(detail =>
         detail.item.itemDesc.toLowerCase().includes(searchLower) ||
         detail.itemId.toString().includes(search)
       );
@@ -195,8 +208,9 @@ export function LoansTable({ data, items }: LoansTableProps) {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-        <div className="relative w-full max-w-[350px]">
+      {/* Search & Filters */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
+        <div className="relative w-full sm:max-w-[350px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             placeholder="Search by requester, ref #, or item name..."
@@ -205,14 +219,14 @@ export function LoansTable({ data, items }: LoansTableProps) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1.5 sm:gap-2 flex-wrap">
           {statusOptions.map(status => (
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
-              className={`h-9 rounded-md px-4 transition-colors capitalize ${
-                filterStatus === status 
-                  ? "bg-[#0C2C47] text-white" 
+              className={`h-8 sm:h-9 rounded-md px-2.5 sm:px-4 text-xs sm:text-sm transition-colors capitalize ${
+                filterStatus === status
+                  ? "bg-[#0C2C47] text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
@@ -222,7 +236,8 @@ export function LoansTable({ data, items }: LoansTableProps) {
         </div>
       </div>
 
-      <div className="rounded-md border">
+      {/* Desktop Table */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -291,15 +306,15 @@ export function LoansTable({ data, items }: LoansTableProps) {
                           <TooltipContent>View details</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                      
+
                       {loan.loanRequestStatus === LoanRequestStatus.PENDING && (
                         <>
                           <LoanFormModal loan={loan} items={items} mode="edit" />
-                          
+
                           <TooltipProvider>
                             <Tooltip>
-                              <AlertDialog 
-                                open={deleteDialogOpen && deletingRefNo === loan.refNo} 
+                              <AlertDialog
+                                open={deleteDialogOpen && deletingRefNo === loan.refNo}
                                 onOpenChange={(open) => {
                                   if (!isDeleting) {
                                     setDeleteDialogOpen(open);
@@ -358,9 +373,132 @@ export function LoansTable({ data, items }: LoansTableProps) {
         </Table>
       </div>
 
-      {/* Details Modal */}
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filteredData.length === 0 ? (
+          <div className="py-12 text-center text-muted-foreground">
+            No loans found.
+          </div>
+        ) : (
+          filteredData.map((loan) => (
+            <div
+              key={loan.refNo}
+              className="rounded-xl border bg-white p-4 active:bg-muted/50 transition-colors"
+              onClick={() => setSelectedLoan(loan)}
+            >
+              {/* Top row: Ref + Status */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-sm">#{loan.refNo}</span>
+                <StatusBadge status={loan.loanRequestStatus} />
+              </div>
+
+              {/* Requester */}
+              <div className="mb-2">
+                <div className="font-medium text-sm">
+                  {loan.requester.firstName}{loan.requester.lastName ? ` ${loan.requester.lastName}` : ''}
+                </div>
+                <div className="text-xs text-muted-foreground">@{loan.requester.telegramHandle}</div>
+                {loan.organisation && (
+                  <div className="text-xs text-muted-foreground">{loan.organisation}</div>
+                )}
+              </div>
+
+              {/* Items preview */}
+              <div className="mb-2 space-y-1">
+                {loan.loanDetails.slice(0, 2).map((detail) => (
+                  <div key={detail.loanDetailId} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Package className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{detail.item.itemDesc}</span>
+                    <span className="shrink-0">x{detail.loanQty}</span>
+                  </div>
+                ))}
+                {loan.loanDetails.length > 2 && (
+                  <span className="text-xs text-muted-foreground">+{loan.loanDetails.length - 2} more</span>
+                )}
+              </div>
+
+              <div className="mt-3 flex items-end justify-between gap-3 border-t pt-3">
+                {/* Period */}
+                <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{format(new Date(loan.loanDateStart), "dd MMM")} - {format(new Date(loan.loanDateEnd), "dd MMM")}</span>
+                  {loan.loanRequestStatus === LoanRequestStatus.ONGOING && new Date() > new Date(loan.loanDateEnd) && (
+                    <span className="ml-1 font-medium text-destructive">Overdue</span>
+                  )}
+                </div>
+
+                {/* Actions for pending loans */}
+                {loan.loanRequestStatus === LoanRequestStatus.PENDING && (
+                  <div className="flex shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <LoanFormModal
+                      loan={loan}
+                      items={items}
+                      mode="edit"
+                      trigger={
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 rounded-full border-slate-200"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      }
+                    />
+                    <AlertDialog
+                      open={deleteDialogOpen && deletingRefNo === loan.refNo}
+                      onOpenChange={(open) => {
+                        if (!isDeleting) {
+                          setDeleteDialogOpen(open);
+                          if (open) setDeletingRefNo(loan.refNo);
+                        }
+                      }}
+                    >
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 rounded-full border-red-200 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Loan Request</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete loan #{loan.refNo}? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                          <Button
+                            onClick={() => handleDelete(loan.refNo)}
+                            disabled={isDeleting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            {isDeleting ? (
+                              <div className="flex items-center gap-2">
+                                <Spinner className="size-4" />
+                                <span>Deleting...</span>
+                              </div>
+                            ) : (
+                              "Delete"
+                            )}
+                          </Button>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Details Modal — Item 5: responsive */}
       <Dialog open={!!selectedLoan} onOpenChange={(open) => !open && setSelectedLoan(null)}>
-        <DialogContent className="max-w-3xl flex flex-col max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-w-3xl w-[calc(100vw-2rem)] flex flex-col max-h-[90vh] overflow-hidden">
           {/* Fixed header */}
           <DialogHeader className="flex-shrink-0">
             <div className="flex justify-between items-center pr-8">
@@ -372,18 +510,17 @@ export function LoansTable({ data, items }: LoansTableProps) {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Fixed metadata */}
-          <div className="flex-shrink-0 grid grid-cols-2 gap-4 text-sm bg-muted/20 p-4 rounded-md">
+          <div className="flex-shrink-0 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-muted/20 p-3 sm:p-4 rounded-md">
               <div>
                 <span className="font-semibold block text-muted-foreground">Requester</span>
-                <div className="text-lg">{selectedLoan?.requester.firstName}{selectedLoan?.requester.lastName ? ` ${selectedLoan.requester.lastName}` : ''}</div>
+                <div className="text-base sm:text-lg">{selectedLoan?.requester.firstName}{selectedLoan?.requester.lastName ? ` ${selectedLoan.requester.lastName}` : ''}</div>
                 {selectedLoan?.requester.nusnetId && (
                   <div className="text-sm text-muted-foreground">{selectedLoan.requester.nusnetId}</div>
                 )}
               </div>
               <div>
                 <span className="font-semibold block text-muted-foreground">Period</span>
-                <div className="text-lg">
+                <div className="text-base sm:text-lg">
                   {selectedLoan && format(new Date(selectedLoan.loanDateStart), "dd MMM")} - {selectedLoan && format(new Date(selectedLoan.loanDateEnd), "dd MMM yyyy")}
                 </div>
                 {/* Lateness Check */}
@@ -395,25 +532,25 @@ export function LoansTable({ data, items }: LoansTableProps) {
               </div>
           </div>
 
-          {/* Fixed approval actions */}
+          {/* Approval Actions */}
           {selectedLoan?.loanRequestStatus === LoanRequestStatus.PENDING && (
             <div className="flex-shrink-0">
               {canApproveLoan(selectedLoan) ? (
-                <div className="flex gap-2 p-4 bg-blue-50/50 border border-blue-100 rounded-md items-center justify-between">
+                <div className="flex flex-col sm:flex-row gap-2 p-3 sm:p-4 bg-blue-50/50 border border-blue-100 rounded-md sm:items-center sm:justify-between">
                   <div className="text-sm text-blue-800">
                     This request is <strong>Pending Approval</strong>. Approving will mark items as on loan.
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <Button variant="destructive" size="sm" onClick={() => handleReject(selectedLoan.refNo)} disabled={isPending}>Reject</Button>
                     <Button className="bg-blue-600 hover:bg-blue-700" size="sm" onClick={() => handleApprove(selectedLoan.refNo)} disabled={isPending}>Approve Loan</Button>
                   </div>
                 </div>
               ) : (
-                <div className="flex gap-2 p-4 bg-red-50 border border-red-200 rounded-md items-center justify-between">
+                <div className="flex flex-col sm:flex-row gap-2 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-md sm:items-center sm:justify-between">
                   <div className="text-sm text-red-800">
                     <strong>Cannot approve:</strong> Some items have insufficient available stock. See details below.
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <Button variant="destructive" size="sm" onClick={() => handleReject(selectedLoan.refNo)} disabled={isPending}>Reject</Button>
                     <Button className="bg-gray-400 cursor-not-allowed" size="sm" disabled>Approve Loan</Button>
                   </div>
@@ -422,9 +559,9 @@ export function LoansTable({ data, items }: LoansTableProps) {
             </div>
           )}
 
-          {/* Scrollable items table */}
+          {/* Scrollable items section */}
           <div className="overflow-y-auto min-h-0 flex-1">
-            <div className="border rounded-md">
+            <div className="hidden sm:block border rounded-md overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -441,7 +578,7 @@ export function LoansTable({ data, items }: LoansTableProps) {
                   {selectedLoan?.loanDetails.map((detail) => {
                     const { available, sufficient } = getItemAvailability(detail.itemId, detail.loanQty);
                     const showAvailability = selectedLoan.loanRequestStatus === LoanRequestStatus.PENDING;
-                    
+
                     return (
                       <TableRow key={detail.loanDetailId} className={showAvailability && !sufficient ? "bg-red-50" : ""}>
                         <TableCell>
@@ -479,6 +616,50 @@ export function LoansTable({ data, items }: LoansTableProps) {
                   })}
                 </TableBody>
               </Table>
+            </div>
+
+            {/* Items — mobile card list */}
+            <div className="sm:hidden space-y-2">
+              {selectedLoan?.loanDetails.map((detail) => {
+                const { available, sufficient } = getItemAvailability(detail.itemId, detail.loanQty);
+                const showAvailability = selectedLoan.loanRequestStatus === LoanRequestStatus.PENDING;
+
+                return (
+                  <div
+                    key={detail.loanDetailId}
+                    className={`rounded-md border p-3 ${showAvailability && !sufficient ? "bg-red-50 border-red-200" : ""}`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">{detail.item.itemDesc}</div>
+                        <div className="text-xs text-muted-foreground">ID: {detail.itemId}</div>
+                      </div>
+                      <ItemStatusBadge status={detail.loanItemStatus} />
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="text-xs text-muted-foreground">
+                        Qty: {detail.loanQty}
+                        {showAvailability && (
+                          <span className={sufficient ? " text-green-600" : " text-red-600 font-medium"}>
+                            {" "}(avail: {available}{!sufficient ? " — insufficient" : ""})
+                          </span>
+                        )}
+                      </div>
+                      {selectedLoan.loanRequestStatus === LoanRequestStatus.ONGOING && detail.loanItemStatus === LoanItemStatus.ON_LOAN && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => handleReturnItem(detail.loanDetailId)}
+                          disabled={isPending}
+                        >
+                          {isPending ? "..." : "Return"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </DialogContent>
@@ -518,4 +699,3 @@ function ItemStatusBadge({ status }: { status: LoanItemStatus }) {
       return <Badge variant="outline" className="text-xs">{status}</Badge>;
   }
 }
-
