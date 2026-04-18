@@ -51,7 +51,7 @@ export default function DeleteItemButton({
         <Button
           variant="secondary"
           size="icon"
-          className="h-8 w-8 bg-white/90 hover:bg-red-50 text-red-600 shadow-sm"
+          className="h-9 w-9 rounded-full bg-white/90 text-red-600 shadow-sm hover:bg-red-50"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>

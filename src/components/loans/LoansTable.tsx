@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import { format } from "date-fns";
-import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search, Trash2, Package, Calendar } from "lucide-react";
+import { Eye, CheckCircle, AlertCircle, Clock, XCircle, Search, Trash2, Package, Calendar, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -383,7 +383,7 @@ export function LoansTable({ data, items, autoOpenRefNo, onAutoOpened }: LoansTa
           filteredData.map((loan) => (
             <div
               key={loan.refNo}
-              className="rounded-lg border bg-white p-4 active:bg-muted/50 transition-colors"
+              className="rounded-xl border bg-white p-4 active:bg-muted/50 transition-colors"
               onClick={() => setSelectedLoan(loan)}
             >
               {/* Top row: Ref + Status */}
@@ -417,65 +417,80 @@ export function LoansTable({ data, items, autoOpenRefNo, onAutoOpened }: LoansTa
                 )}
               </div>
 
-              {/* Period */}
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3 shrink-0" />
-                <span>{format(new Date(loan.loanDateStart), "dd MMM")} - {format(new Date(loan.loanDateEnd), "dd MMM")}</span>
-                {loan.loanRequestStatus === LoanRequestStatus.ONGOING && new Date() > new Date(loan.loanDateEnd) && (
-                  <span className="text-destructive font-medium ml-1">Overdue</span>
+              <div className="mt-3 flex items-end justify-between gap-3 border-t pt-3">
+                {/* Period */}
+                <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{format(new Date(loan.loanDateStart), "dd MMM")} - {format(new Date(loan.loanDateEnd), "dd MMM")}</span>
+                  {loan.loanRequestStatus === LoanRequestStatus.ONGOING && new Date() > new Date(loan.loanDateEnd) && (
+                    <span className="ml-1 font-medium text-destructive">Overdue</span>
+                  )}
+                </div>
+
+                {/* Actions for pending loans */}
+                {loan.loanRequestStatus === LoanRequestStatus.PENDING && (
+                  <div className="flex shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <LoanFormModal
+                      loan={loan}
+                      items={items}
+                      mode="edit"
+                      trigger={
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 rounded-full border-slate-200"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      }
+                    />
+                    <AlertDialog
+                      open={deleteDialogOpen && deletingRefNo === loan.refNo}
+                      onOpenChange={(open) => {
+                        if (!isDeleting) {
+                          setDeleteDialogOpen(open);
+                          if (open) setDeletingRefNo(loan.refNo);
+                        }
+                      }}
+                    >
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 rounded-full border-red-200 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Loan Request</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete loan #{loan.refNo}? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                          <Button
+                            onClick={() => handleDelete(loan.refNo)}
+                            disabled={isDeleting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            {isDeleting ? (
+                              <div className="flex items-center gap-2">
+                                <Spinner className="size-4" />
+                                <span>Deleting...</span>
+                              </div>
+                            ) : (
+                              "Delete"
+                            )}
+                          </Button>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 )}
               </div>
-
-              {/* Actions for pending loans */}
-              {loan.loanRequestStatus === LoanRequestStatus.PENDING && (
-                <div className="flex gap-2 mt-3 pt-3 border-t" onClick={(e) => e.stopPropagation()}>
-                  <LoanFormModal loan={loan} items={items} mode="edit" />
-                  <AlertDialog
-                    open={deleteDialogOpen && deletingRefNo === loan.refNo}
-                    onOpenChange={(open) => {
-                      if (!isDeleting) {
-                        setDeleteDialogOpen(open);
-                        if (open) setDeletingRefNo(loan.refNo);
-                      }
-                    }}
-                  >
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Loan Request</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete loan #{loan.refNo}? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                        <Button
-                          onClick={() => handleDelete(loan.refNo)}
-                          disabled={isDeleting}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          {isDeleting ? (
-                            <div className="flex items-center gap-2">
-                              <Spinner className="size-4" />
-                              <span>Deleting...</span>
-                            </div>
-                          ) : (
-                            "Delete"
-                          )}
-                        </Button>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              )}
             </div>
           ))
         )}

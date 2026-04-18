@@ -406,7 +406,7 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
           {items.map((item) => (
             <div
               key={item.itemId}
-              className="relative flex flex-col rounded-lg bg-white overflow-hidden shadow-sm active:shadow-md transition-shadow p-3"
+              className="relative flex flex-col rounded-2xl bg-white overflow-hidden shadow-sm active:shadow-md transition-shadow p-3"
               onClick={() => setSelectedItem(item)}
             >
               {/* Badges row */}
@@ -456,7 +456,7 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
 
         {/* Mobile item detail dialog */}
         <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-          <DialogContent className="max-w-sm w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto p-0">
+          <DialogContent className="max-w-sm w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto rounded-2xl p-0">
             <DialogHeader className="sr-only">
               <DialogTitle>{selectedItem?.itemDesc}</DialogTitle>
               <DialogDescription>Item details</DialogDescription>
@@ -475,41 +475,6 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <span className="text-gray-400">No Image</span>
-                    </div>
-                  )}
-                  {/* Edit/delete actions overlay */}
-                  {canEdit && (
-                    <div className="absolute top-3 right-3 flex gap-1">
-                      <ItemFormModal
-                        slocs={slocs}
-                        ihs={ihs}
-                        mode="edit"
-                        item={{
-                          itemId: selectedItem.itemId,
-                          itemDesc: selectedItem.itemDesc,
-                          itemQty: selectedItem.itemQty,
-                          itemUom: selectedItem.itemUom,
-                          itemSloc: selectedItem.itemSloc,
-                          itemIh: selectedItem.itemIh,
-                          itemRemarks: selectedItem.itemRemarks,
-                          itemPurchaseDate: selectedItem.itemPurchaseDate,
-                          itemRfpNumber: selectedItem.itemRfpNumber,
-                          itemImage: selectedItem.itemImage,
-                          itemUnloanable: selectedItem.itemUnloanable,
-                          itemExpendable: selectedItem.itemExpendable,
-                        }}
-                        trigger={
-                          <Button variant="secondary" size="icon" className="h-8 w-8 bg-white/90 hover:bg-white shadow-sm">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                        }
-                        onSuccess={() => { refreshItems(); setSelectedItem(null); }}
-                      />
-                      <DeleteItemButton
-                        itemId={Number(selectedItem.itemId)}
-                        itemDesc={selectedItem.itemDesc}
-                        onDelete={() => { refreshItems(); setSelectedItem(null); }}
-                      />
                     </div>
                   )}
                 </div>
@@ -546,17 +511,54 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
                     </p>
                   </div>
 
-                  {/* Quantity */}
-                  <div className="flex items-baseline gap-1.5">
-                    <span className={cn(
-                      "text-2xl font-semibold",
-                      selectedItem.availableQty > 0 ? "text-green-600" : "text-destructive"
-                    )}>
-                      {selectedItem.availableQty}
-                    </span>
-                    <span className="text-gray-400 text-sm">/</span>
-                    <span className="text-gray-600 text-sm">{selectedItem.totalQty}</span>
-                    <span className="text-gray-400 text-xs ml-1">available</span>
+                  {/* Quantity + actions */}
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className={cn(
+                        "text-2xl font-semibold",
+                        selectedItem.availableQty > 0 ? "text-green-600" : "text-destructive"
+                      )}>
+                        {selectedItem.availableQty}
+                      </span>
+                      <span className="text-gray-400 text-sm">/</span>
+                      <span className="text-gray-600 text-sm">{selectedItem.totalQty}</span>
+                      <span className="text-gray-400 text-xs ml-1">available</span>
+                    </div>
+
+                    {canEdit && (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <ItemFormModal
+                          slocs={slocs}
+                          ihs={ihs}
+                          mode="edit"
+                          item={{
+                            itemId: selectedItem.itemId,
+                            itemDesc: selectedItem.itemDesc,
+                            itemQty: selectedItem.itemQty,
+                            itemUom: selectedItem.itemUom,
+                            itemSloc: selectedItem.itemSloc,
+                            itemIh: selectedItem.itemIh,
+                            itemRemarks: selectedItem.itemRemarks,
+                            itemPurchaseDate: selectedItem.itemPurchaseDate,
+                            itemRfpNumber: selectedItem.itemRfpNumber,
+                            itemImage: selectedItem.itemImage,
+                            itemUnloanable: selectedItem.itemUnloanable,
+                            itemExpendable: selectedItem.itemExpendable,
+                          }}
+                          trigger={
+                            <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-slate-200">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          }
+                          onSuccess={() => { refreshItems(); setSelectedItem(null); }}
+                        />
+                        <DeleteItemButton
+                          itemId={Number(selectedItem.itemId)}
+                          itemDesc={selectedItem.itemDesc}
+                          onDelete={() => { refreshItems(); setSelectedItem(null); }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {selectedItem.itemRemarks && (
