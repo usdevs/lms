@@ -1,9 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, RotateCcw, X, Pencil, Ban, Package } from "lucide-react";
+import { Search, RotateCcw, X, Pencil, Ban, Package, ImageIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import ItemFormModal from "./ItemFormModal";
@@ -163,6 +170,9 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
     sortOption !== defaultFilters.sortOption ||
     sortAsc !== defaultFilters.sortAsc;
 
+  // Selected item for mobile detail dialog
+  const [selectedItem, setSelectedItem] = useState<EnrichedItemView | null>(null);
+
   // Refresh items after create/update/delete (preserves current filters)
   const refreshItems = useCallback(() => {
     setPage(1);
@@ -171,11 +181,11 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
   }, [fetchItems]);
 
   return (
-    <div className="min-h-screen w-full bg-[#0C2C47] p-8">
+    <div className="min-h-screen w-full bg-[#0C2C47] p-4 md:p-8">
       <DashboardNav userRole={userRole} />
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 md:mb-8 flex items-center justify-between">
         <div>
-          <h1 className="mb-2 text-4xl font-bold text-white">Catalogue</h1>
+          <h1 className="mb-1 md:mb-2 text-2xl md:text-4xl font-bold text-white">Catalogue</h1>
           <p className="text-white/80">{totalItems} ITEMS</p>
         </div>
         {canEdit && (
@@ -183,8 +193,8 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
         )}
       </div>
 
-      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="relative w-full max-w-md">
+      <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+        <div className="relative w-full md:max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             ref={searchInputRef}
@@ -205,38 +215,39 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
             </button>
           )}
         </div>
-      <div className="flex gap-3 flex-wrap">
-      
+      <div className="flex gap-2 md:gap-3 flex-wrap">
+
       {/*Reset Filters Button - only show when filters are active */}
       {hasActiveFilters && (
         <button
            onClick={resetFilters}
-           className="h-9 rounded-md bg-white/20 px-4 text-white hover:bg-white/30 transition-colors flex items-center gap-2"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-3 md:px-4 text-sm text-white hover:bg-white/30 transition-colors flex items-center gap-1.5"
          >
-           <RotateCcw className="h-4 w-4" />
-           Reset Filters
+           <RotateCcw className="h-3.5 w-3.5" />
+           <span className="hidden sm:inline">Reset Filters</span>
+           <span className="sm:hidden">Reset</span>
         </button>
       )}
 
       <select
            value={filterSlocId}
            onChange={(e) => setFilterSlocId(e.target.value)}
-           className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-2 md:px-3 text-sm text-white border border-white/20 focus:outline-none"
          >
-           <option value="" className="text-black">All Locations</option>  {/*Default*/}
+           <option value="" className="text-black">All Locations</option>
            {slocs.map((s) => (
              <option key={s.slocId} value={s.slocId} className="text-black">
                {s.slocName}
              </option>
            ))}
          </select>
-      
+
       <select
            value={filterIhId}
            onChange={(e) => setFilterIhId(e.target.value)}
-           className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-2 md:px-3 text-sm text-white border border-white/20 focus:outline-none"
          >
-           <option value="" className="text-black">All Holders</option>  {/*Default*/}
+           <option value="" className="text-black">All Holders</option>
            {ihs.map((h) => (
              <option key={h.ihId} value={h.ihId} className="text-black">
                {h.ihName}
@@ -247,19 +258,19 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
       <select
            value={sortOption}
            onChange={(e) => setSortOption(e.target.value as SortOption)}
-           className="h-9 rounded-md bg-white/20 px-3 text-white border border-white/20 focus:outline-none"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-2 md:px-3 text-sm text-white border border-white/20 focus:outline-none"
          >
-           <option value="name" className="text-black">Sort by Item Name</option>
-           <option value="quantity" className="text-black">Sort by Quantity</option>
-           <option value="id" className="text-black">Sort by ID</option>
+           <option value="name" className="text-black">Sort: Name</option>
+           <option value="quantity" className="text-black">Sort: Qty</option>
+           <option value="id" className="text-black">Sort: ID</option>
          </select>
-      
+
         {/*Asc/Desc Button*/}
          <button
            onClick={() => {
              setSortAsc(!sortAsc);
            }}
-           className="h-9 rounded-md bg-white/20 px-4 text-white hover:bg-white/30 transition-colors"
+           className="h-8 md:h-9 rounded-md bg-white/20 px-3 md:px-4 text-white hover:bg-white/30 transition-colors"
          >
            {sortAsc ? "▲" : "▼"}
          </button>
@@ -280,7 +291,9 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <>
+        {/* Desktop grid — full cards with images */}
+        <div className="hidden sm:grid grid-cols-2 gap-5 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {items.map((item) => (
             <div
               key={item.itemId}
@@ -300,7 +313,7 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
                     <span className="text-gray-400 text-sm">No Image</span>
                   </div>
                 )}
-                
+
                 {/* Action buttons - appear on hover (only for LOGS+) */}
                 {canEdit && (
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -360,7 +373,7 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
                 <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2">
                   {item.itemDesc}
                 </h3>
-                
+
                 <div className="text-xs text-gray-500 space-y-0.5 mb-4">
                   <p className="truncate">{item.sloc.slocName}</p>
                   <p className="truncate">
@@ -387,6 +400,176 @@ export default function Catalogue({ slocs, ihs, userRole }: CatalogueProps) {
             </div>
           ))}
         </div>
+
+        {/* Mobile grid — compact cards without images, 2 per row */}
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+          {items.map((item) => (
+            <div
+              key={item.itemId}
+              className="relative flex flex-col rounded-2xl bg-white overflow-hidden shadow-sm active:shadow-md transition-shadow p-3"
+              onClick={() => setSelectedItem(item)}
+            >
+              {/* Badges row */}
+              {(item.itemUnloanable || item.itemExpendable) && (
+                <div className="flex gap-1 mb-1.5">
+                  {item.itemUnloanable && (
+                    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded">
+                      <Ban className="h-2.5 w-2.5" />
+                      Unloanable
+                    </span>
+                  )}
+                  {item.itemExpendable && (
+                    <span className="inline-flex items-center gap-0.5 px-1 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded">
+                      <Package className="h-2.5 w-2.5" />
+                      Expendable
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Title */}
+              <h3 className="text-xs font-semibold text-gray-900 line-clamp-2 mb-1">
+                {item.itemDesc}
+              </h3>
+
+              {/* Location */}
+              <p className="text-[10px] text-gray-500 truncate mb-2">{item.sloc.slocName}</p>
+
+              {/* Quantity + image indicator */}
+              <div className="flex items-center justify-between mt-auto">
+                <div className="flex items-baseline gap-1">
+                  <span className={cn(
+                    "text-base font-semibold",
+                    item.availableQty > 0 ? "text-green-600" : "text-destructive"
+                  )}>
+                    {item.availableQty}
+                  </span>
+                  <span className="text-gray-400 text-xs">/ {item.totalQty}</span>
+                </div>
+                {item.itemImage && (
+                  <ImageIcon className="h-3.5 w-3.5 text-gray-300" />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Mobile item detail dialog */}
+        <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
+          <DialogContent className="max-w-sm w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto rounded-2xl p-0">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{selectedItem?.itemDesc}</DialogTitle>
+              <DialogDescription>Item details</DialogDescription>
+            </DialogHeader>
+
+            {selectedItem && (
+              <>
+                {/* Image */}
+                <div className="w-full aspect-square bg-gray-100 relative">
+                  {selectedItem.itemImage ? (
+                    <img
+                      src={selectedItem.itemImage}
+                      alt={selectedItem.itemDesc}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-gray-400">No Image</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Details */}
+                <div className="p-4 space-y-3">
+                  {/* Badges */}
+                  {(selectedItem.itemUnloanable || selectedItem.itemExpendable) && (
+                    <div className="flex gap-1.5">
+                      {selectedItem.itemUnloanable && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded">
+                          <Ban className="h-3 w-3" />
+                          Unloanable
+                        </span>
+                      )}
+                      {selectedItem.itemExpendable && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+                          <Package className="h-3 w-3" />
+                          Expendable
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <h2 className="text-base font-semibold text-gray-900">{selectedItem.itemDesc}</h2>
+
+                  <div className="text-sm text-gray-500 space-y-1">
+                    <p>{selectedItem.sloc.slocName}</p>
+                    <p>
+                      {selectedItem.ih.ihName}
+                      {selectedItem.ih.members?.[0]?.user?.telegramHandle && (
+                        <span className="text-gray-400"> (@{selectedItem.ih.members[0].user.telegramHandle})</span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Quantity + actions */}
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className={cn(
+                        "text-2xl font-semibold",
+                        selectedItem.availableQty > 0 ? "text-green-600" : "text-destructive"
+                      )}>
+                        {selectedItem.availableQty}
+                      </span>
+                      <span className="text-gray-400 text-sm">/</span>
+                      <span className="text-gray-600 text-sm">{selectedItem.totalQty}</span>
+                      <span className="text-gray-400 text-xs ml-1">available</span>
+                    </div>
+
+                    {canEdit && (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <ItemFormModal
+                          slocs={slocs}
+                          ihs={ihs}
+                          mode="edit"
+                          item={{
+                            itemId: selectedItem.itemId,
+                            itemDesc: selectedItem.itemDesc,
+                            itemQty: selectedItem.itemQty,
+                            itemUom: selectedItem.itemUom,
+                            itemSloc: selectedItem.itemSloc,
+                            itemIh: selectedItem.itemIh,
+                            itemRemarks: selectedItem.itemRemarks,
+                            itemPurchaseDate: selectedItem.itemPurchaseDate,
+                            itemRfpNumber: selectedItem.itemRfpNumber,
+                            itemImage: selectedItem.itemImage,
+                            itemUnloanable: selectedItem.itemUnloanable,
+                            itemExpendable: selectedItem.itemExpendable,
+                          }}
+                          trigger={
+                            <Button variant="outline" size="icon" className="h-9 w-9 rounded-full border-slate-200">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          }
+                          onSuccess={() => { refreshItems(); setSelectedItem(null); }}
+                        />
+                        <DeleteItemButton
+                          itemId={Number(selectedItem.itemId)}
+                          itemDesc={selectedItem.itemDesc}
+                          onDelete={() => { refreshItems(); setSelectedItem(null); }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedItem.itemRemarks && (
+                    <p className="text-sm text-gray-500 italic">{selectedItem.itemRemarks}</p>
+                  )}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+        </>
       )}
 
       {/* Infinite scroll sentinel - triggers loading when scrolled into view */}

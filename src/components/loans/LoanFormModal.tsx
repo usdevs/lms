@@ -68,14 +68,16 @@ interface LoanFormModalProps {
     loan?: LoanWithDetails;
     mode?: "add" | "edit";
     trigger?: React.ReactNode;
+    onCreated?: (refNo: number) => void;
 }
 
-export function LoanFormModal({ 
-    items, 
-    requesters = [], 
-    loan, 
+export function LoanFormModal({
+    items,
+    requesters = [],
+    loan,
     mode = "add",
-    trigger 
+    trigger,
+    onCreated,
 }: LoanFormModalProps) {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
@@ -148,10 +150,16 @@ export function LoanFormModal({
                 const result = await createLoan(data);
                 if (result.success) {
                     toast.success("Loan created successfully");
-                    // Show success state with refNo instead of closing
-                    setCreatedLoanRefNo(result.refNo ?? null);
-                    // Clear the form so "Create Another" starts fresh
-                    form.reset(defaultValues);
+                    if (onCreated && result.refNo) {
+                        // Close modal and let parent open the detail view
+                        form.reset(defaultValues);
+                        setOpen(false);
+                        onCreated(result.refNo);
+                    } else {
+                        // Fallback: show success state with refNo
+                        setCreatedLoanRefNo(result.refNo ?? null);
+                        form.reset(defaultValues);
+                    }
                 } else {
                     toast.error(result.error || "Failed to create loan");
                 }
@@ -289,7 +297,7 @@ export function LoanFormModal({
                     {triggerElement}
                 </DialogTrigger>
             )}
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto">
                 {/* Success State after creating */}
                 {createdLoanRefNo !== null ? (
                     <>
@@ -333,7 +341,7 @@ export function LoanFormModal({
 
                         {/* Requester Section - only for add mode */}
                         {mode === "add" ? (
-                            <div className="space-y-4 border p-4 rounded-md">
+                            <div className="space-y-4 border p-3 sm:p-4 rounded-md">
                                 <div className="flex justify-between items-center">
                                     <h3 className="font-semibold text-sm text-foreground/80">
                                         {form.watch("newRequester") ? "New Requester" : "Requester"}
@@ -367,7 +375,7 @@ export function LoanFormModal({
                                 />
                             </div>
                         ) : loan && (
-                            <div className="space-y-2 border p-4 rounded-md bg-muted/20">
+                            <div className="space-y-2 border p-3 sm:p-4 rounded-md bg-muted/20">
                                 <h3 className="font-semibold text-sm text-foreground/80">Requester</h3>
                                 <div className="text-sm">
                                     <span className="font-medium">
@@ -382,7 +390,7 @@ export function LoanFormModal({
                         )}
 
                         {/* Loan Details */}
-                        <div className="space-y-4 border p-4 rounded-md">
+                        <div className="space-y-4 border p-3 sm:p-4 rounded-md">
                             <h3 className="font-semibold text-sm text-foreground/80">Loan Details</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <FormField
@@ -467,7 +475,7 @@ export function LoanFormModal({
                         </div>
 
                         {/* Items Section */}
-                        <div className="space-y-4 border p-4 rounded-md bg-muted/10">
+                        <div className="space-y-4 border p-3 sm:p-4 rounded-md bg-muted/10">
                             <h3 className="font-semibold text-sm text-foreground/80">Items</h3>
 
                             <ItemSelector 
@@ -483,9 +491,9 @@ export function LoanFormModal({
                                     const isOverLimit = item.loanQty > totalQty;
                                     const isJustAdded = justAddedItemId === item.itemId;
                                     return (
-                                        <div key={item.itemId} className={`flex justify-between items-center p-3 border rounded shadow-sm transition-colors duration-1000 ${isJustAdded ? "bg-green-50 border-green-300" : "bg-background"}`}>
-                                            <div className="flex-1">
-                                                <div className="font-medium text-sm">{itemInfo?.itemDesc || "Unknown Item"}</div>
+                                        <div key={item.itemId} className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 border rounded shadow-sm transition-colors duration-1000 ${isJustAdded ? "bg-green-50 border-green-300" : "bg-background"}`}>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-sm truncate">{itemInfo?.itemDesc || "Unknown Item"}</div>
                                                 <div className="text-xs text-muted-foreground">
                                                     {isOverLimit ? (
                                                         <span className="text-destructive">Exceeds total ({totalQty})</span>
@@ -494,7 +502,7 @@ export function LoanFormModal({
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-3 shrink-0">
                                                 <div className="flex items-center gap-2">
                                                     <label className="text-xs text-muted-foreground">Qty:</label>
                                                     <Input
@@ -506,11 +514,11 @@ export function LoanFormModal({
                                                         className={`w-20 h-8 ${isOverLimit ? 'border-destructive' : ''}`}
                                                     />
                                                 </div>
-                                                <Button 
+                                                <Button
                                                     type="button"
-                                                    size="icon" 
-                                                    variant="ghost" 
-                                                    className="h-8 w-8 text-destructive" 
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 text-destructive"
                                                     onClick={() => removeItem(idx)}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
