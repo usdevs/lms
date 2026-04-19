@@ -31,7 +31,7 @@ const MODEL_ID_MAP = Object.fromEntries(
 const softDeleteConfig = Object.fromEntries(
   dmmfModels
     .filter((m: Prisma.DMMF.Model) => m.fields.some((f: Prisma.DMMF.Field) => f.name === 'deletedAt'))
-    .map((m: Prisma.DMMF.Model) => [m.name, { field: 'deletedAt', createValue: () => new Date() }])
+    .map((m: Prisma.DMMF.Model) => [m.name, { field: 'deletedAt', createValue: (deleted: boolean) => deleted ? new Date() : null }])
 );
 
 async function getSessionUserId() {
