@@ -9,8 +9,6 @@ services:
       POSTGRES_DB: lms_dev
     networks:
       - lms_dev
-    volumes:
-      - db:/var/lib/postgresql/data
 
 volumes:
   db:
