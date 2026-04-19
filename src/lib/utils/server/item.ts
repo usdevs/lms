@@ -3,6 +3,7 @@ import { LoanItemStatus } from "@prisma/client";
 
 export const getItems = async () => {
   const items = await prisma.item.findMany({
+    omit: { deletedAt: true },
     include: {
       sloc: {
         select: {
