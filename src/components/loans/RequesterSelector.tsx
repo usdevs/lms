@@ -82,7 +82,7 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                 className="space-y-3"
                 onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
             >
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <Label className={cn(errors?.firstName && "text-destructive")}>First Name *</Label>
                         <Input 
@@ -100,7 +100,7 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                         <Input value={newDetails.lastName} onChange={(e) => handleNewChange("lastName", e.target.value)} placeholder="Doe" />
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                         <Label className={cn(errors?.telegramHandle && "text-destructive")}>Telegram Handle *</Label>
                         <Input 
@@ -140,8 +140,8 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
                 <Command>
                     <CommandInput placeholder="Search requester..." />
-                    <CommandList 
-                        className="max-h-[300px] overflow-y-auto overscroll-contain"
+                            <CommandList
+                        className="max-h-[200px] overflow-y-auto overscroll-contain"
                         onWheel={(e) => {
                             e.stopPropagation();
                             const target = e.currentTarget;
@@ -174,19 +174,19 @@ export function RequesterSelector({ requesters, value, onChange, onNewDetailsCha
                                 );
                             })}
                         </CommandGroup>
-                        <CommandSeparator />
-                        <CommandGroup>
-                            <CommandItem 
-                                onSelect={() => {
-                                    onChange("new");
-                                    setOpen(false);
-                                }}
-                                className="font-normal"
-                            >
-                                <Plus className="mr-2 h-4 w-4" /> Create New Requester
-                            </CommandItem>
-                        </CommandGroup>
                     </CommandList>
+                    <CommandSeparator />
+                    <CommandGroup>
+                        <CommandItem
+                            onSelect={() => {
+                                onChange("new");
+                                setOpen(false);
+                            }}
+                            className="font-normal"
+                        >
+                            <Plus className="mr-2 h-4 w-4" /> Create New Requester
+                        </CommandItem>
+                    </CommandGroup>
                 </Command>
             </PopoverContent>
         </Popover>

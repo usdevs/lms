@@ -8,6 +8,7 @@ export const getItems = async () => {
       itemNeedsReindex: true,
       itemReindexRequestedAt: true,
       itemLastIndexedAt: true,
+      deletedAt: true,
     },
     include: {
       sloc: {

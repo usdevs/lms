@@ -6,6 +6,16 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -75,6 +85,7 @@ export default function ItemFormModal({
 }: ItemFormModalProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(item?.itemImage ?? null);
   const [shouldDeleteOldImage, setShouldDeleteOldImage] = useState(false);
@@ -220,32 +231,48 @@ export default function ItemFormModal({
     }
   }
   
-  const handleOpenChange = (newOpen: boolean) => {
-    setOpen(newOpen);
-    if (!newOpen) {
-      // Reset form when closing
-      form.reset(defaultValues);
-      setSelectedFile(null);
-      setPreviewUrl(item?.itemImage ?? null);
-      setShouldDeleteOldImage(false);
-      setLocalSlocs(slocs);
-      setNewSlocDetails({ slocName: "" });
-      setSlocSelectorValue(item?.itemSloc ?? undefined);
+  // Image changes live outside react-hook-form, so combine both for dirty check
+  const isFormDirty = form.formState.isDirty || selectedFile !== null || shouldDeleteOldImage;
+
+  const doClose = () => {
+    setOpen(false);
+    form.reset(defaultValues);
+    setSelectedFile(null);
+    setPreviewUrl(item?.itemImage ?? null);
+    setShouldDeleteOldImage(false);
+    setLocalSlocs(slocs);
+    setNewSlocDetails({ slocName: "" });
+    setSlocSelectorValue(item?.itemSloc ?? undefined);
+  };
+
+  const handleClose = () => {
+    if (isFormDirty) {
+      setShowDiscardConfirm(true);
+    } else {
+      doClose();
     }
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      handleClose();
+      return;
+    }
+    setOpen(true);
   };
 
   // Handle SLOC selector change
   const handleSlocChange = (val: SlocSelectorValue) => {
     setSlocSelectorValue(val);
     if (val && val !== "new") {
-      form.setValue("itemSloc", val);
+      form.setValue("itemSloc", val, { shouldDirty: true });
       form.clearErrors("itemSloc");
     } else if (val === "new") {
       // Set placeholder to pass validation - will be replaced with actual ID on submit
-      form.setValue("itemSloc", "__new__");
+      form.setValue("itemSloc", "__new__", { shouldDirty: true });
       form.clearErrors("itemSloc");
     } else {
-      form.setValue("itemSloc", "");
+      form.setValue("itemSloc", "", { shouldDirty: true });
     }
   };
 
@@ -268,6 +295,7 @@ export default function ItemFormModal({
   );
   
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       {!trigger && <DialogTrigger asChild>{defaultTrigger}</DialogTrigger>}
@@ -303,7 +331,7 @@ export default function ItemFormModal({
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="itemQty"
@@ -340,7 +368,7 @@ export default function ItemFormModal({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="itemSloc"
@@ -475,12 +503,12 @@ export default function ItemFormModal({
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="itemUnloanable"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 sm:p-4">
                       <FormControl>
                         <Checkbox
                           checked={field.value === true}
@@ -502,7 +530,7 @@ export default function ItemFormModal({
                   control={form.control}
                   name="itemExpendable"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 sm:p-4">
                       <FormControl>
                         <Checkbox
                           checked={field.value === true}
@@ -526,12 +554,12 @@ export default function ItemFormModal({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || (mode === "edit" && !isFormDirty)}>
                 {isSubmitting ? (
                   <div className="flex items-center gap-2">
                     <Spinner className="size-4" />
@@ -546,5 +574,21 @@ export default function ItemFormModal({
         </Form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showDiscardConfirm} onOpenChange={setShowDiscardConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes that will be lost if you close.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep Editing</AlertDialogCancel>
+          <AlertDialogAction onClick={doClose}>Discard Changes</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
