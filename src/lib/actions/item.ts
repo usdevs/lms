@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { pipeline } from '@xenova/transformers';
 import prisma from "@/lib/prisma";
 import { formDataToObject } from "@/lib/utils";
 import {
@@ -15,29 +14,7 @@ import { ItemPaginationParams, PaginatedItemsResponse } from "../types/items";
 import { uploadImage, deleteImage } from "../storage";
 import { getSession } from "@/lib/auth/session";
 import { canManageItems } from "@/lib/auth/rbac";
-
-//creates the instance of the AI
-class EmbeddingPipeline {
-  static task = "feature-extraction" as const;
-  static model = "Xenova/all-MiniLM-L6-v2";
-  static instance: any = null;
-
-  static async getInstance() {
-    if (this.instance === null) {
-      this.instance = await pipeline(this.task, this.model);
-    }
-    return this.instance;
-  }
-}
-
-//converts the search text to a vector(384) 
-export async function generateEmbedding(text: string): Promise<number[]> {
-  if (!text || text.trim() === "") return [];
-
-  const extractor = await EmbeddingPipeline.getInstance();
-  const output = await extractor(text, { pooling: "mean", normalize: true });
-  return Array.from(output.data);
-}
+import { generateEmbedding } from "@/lib/embeddings";
 
 /**
  * Helper to check if the current user has permission to manage items
@@ -51,6 +28,30 @@ async function requireItemManageAuth(): Promise<{ authorized: true } | { authori
     return { authorized: false, error: "LOGS or ADMIN access required to manage items" };
   }
   return { authorized: true };
+}
+
+async function findKeywordMatchedItemIds(search?: string): Promise<number[]> {
+  const searchWords = search?.split(/\s+/).filter((word) => word.length > 1) ?? [];
+  if (searchWords.length === 0) {
+    return [];
+  }
+
+  const matchedItems = await prisma.item.findMany({
+    where: {
+      OR: searchWords.flatMap((word) => [
+        { itemDesc: { contains: word, mode: "insensitive" } },
+        { itemRemarks: { contains: word, mode: "insensitive" } },
+        { itemSloc: { contains: word, mode: "insensitive" } },
+        { itemIh: { contains: word, mode: "insensitive" } },
+        { itemUom: { contains: word, mode: "insensitive" } },
+        { itemRfpNumber: { contains: word, mode: "insensitive" } },
+        { itemImageCaption: { contains: word, mode: "insensitive" } },
+      ]),
+    },
+    select: { itemId: true },
+  });
+
+  return matchedItems.map((item) => item.itemId);
 }
 
 export async function createItem(formData: FormData) {
@@ -77,7 +78,7 @@ export async function createItem(formData: FormData) {
   }
 
 try {
-    const newItem = await prisma.item.create({
+    await prisma.item.create({
       data: {
         itemDesc: data.itemDesc.trim(),
         itemSloc: data.itemSloc.trim(),
@@ -90,19 +91,10 @@ try {
         itemImage: data.itemImage?.trim() || null,
         itemUnloanable: data.itemUnloanable ?? false,
         itemExpendable: data.itemExpendable ?? false,
+        itemNeedsReindex: true,
+        itemReindexRequestedAt: new Date(),
       },
     });
-
-    //Generate the embedding from the item's details
-    const searchableText = `${data.itemDesc} ${data.itemRemarks || ""} ${data.itemSloc} ${data.itemIh}`.trim();
-    const embeddingVector = await generateEmbedding(searchableText);
-    const vectorString = `[${embeddingVector.join(",")}]`;
-
-    await prisma.$executeRaw`
-      UPDATE item 
-      SET item_embedding = ${vectorString}::vector 
-      WHERE item_id = ${newItem.itemId}
-    `;
 
   } catch (error) {
     console.error("Error creating item:", error);
@@ -186,19 +178,10 @@ export async function updateItem(itemId: number, formData: FormData) {
         itemImage: data.itemImage?.trim() || null,
         itemUnloanable: data.itemUnloanable ?? false,
         itemExpendable: data.itemExpendable ?? false,
+        itemNeedsReindex: true,
+        itemReindexRequestedAt: new Date(),
       },
     });
-    
-    //create new embedded vector
-    const searchableText = `${data.itemDesc} ${data.itemRemarks || ""} ${data.itemSloc} ${data.itemIh}`.trim();
-    const embeddingVector = await generateEmbedding(searchableText);
-    const vectorString = `[${embeddingVector.join(",")}]`;
-
-    await prisma.$executeRaw`
-      UPDATE item 
-      SET item_embedding = ${vectorString}::vector 
-      WHERE item_id = ${itemId}
-    `;
 
   } catch (error) {
     console.error("Error updating item:", error);
@@ -313,6 +296,9 @@ export async function getItemsPaginated(params: {
 
     // --- 1. SEARCH LOGIC ---
     if (params.search) {
+      const keywordIds = await findKeywordMatchedItemIds(params.search);
+      let semanticIds: number[] = [];
+
       try {
         const queryVector = await generateEmbedding(params.search);
         const vectorString = `[${queryVector.join(",")}]`;
@@ -330,36 +316,17 @@ export async function getItemsPaginated(params: {
         // semanticResults.forEach(r => console.log(`ID: ${r.itemId} | Distance: ${r.distance.toFixed(4)}`));
         
         //currently an r distance of  0.65 was chosen to determine how close the items to the search result
-        const aiIds = semanticResults
+        semanticIds = semanticResults
           .filter((r) => r.distance < 0.65)
           .map((r) => r.itemId);
-
-        const searchWords = params.search.split(/\s+/).filter((w) => w.length > 1);
-        let exactIds: number[] = [];
-        
-        //If multiple words are used shows the results that are similar to each individual word
-        if (searchWords.length > 0) {
-          const exactMatchItems = await prisma.item.findMany({
-            where: {
-              OR: searchWords.map((word) => ({
-                itemDesc: { contains: word, mode: 'insensitive' }
-              })),
-            },
-            select: { itemId: true },
-          });
-          exactIds = exactMatchItems.map((item) => item.itemId);
-        }
-        
-        //collects the ids that match the exact search result and the semantic search 
-        const combinedIds = Array.from(new Set([...aiIds, ...exactIds]));
-        if (combinedIds.length === 0) {
-          conditions.push({ itemId: -1 });
-        } else {
-          conditions.push({ itemId: { in: combinedIds } });
-        }
       } catch (err) {
-        console.error("Internal search error:", err);
+        console.error("Semantic search failed, using keyword matches only:", err);
       }
+
+      const combinedIds = Array.from(new Set([...keywordIds, ...semanticIds]));
+      conditions.push(
+        combinedIds.length > 0 ? { itemId: { in: combinedIds } } : { itemId: -1 }
+      );
     }
 
     if (params.slocId) {

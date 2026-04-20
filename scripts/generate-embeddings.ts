@@ -1,58 +1,58 @@
-import { PrismaClient } from '@prisma/client';
-import { pipeline } from '@xenova/transformers';
+import { PrismaClient } from "@prisma/client";
+import { CATALOGUE_MODELS } from "../src/lib/ai";
+import { generateAndStoreItemEmbedding } from "../src/lib/embeddings";
 
 const prisma = new PrismaClient();
+const forceCaptions = process.argv.includes("--force-captions");
 
-class EmbeddingPipeline {
-  static task = "feature-extraction" as const;
-  static model = "Xenova/all-MiniLM-L6-v2";
-  static instance: any = null;
-
-  static async getInstance() {
-    if (this.instance === null) {
-      this.instance = await pipeline(this.task, this.model);
-    }
-    return this.instance;
+function getCaptionStrategyLabel(): string {
+  if (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY) {
+    return `Gemini semantic enrichment (${CATALOGUE_MODELS.gemini})`;
   }
-}
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  if (!text || text.trim() === "") return [];
-  
-  const extractor = await EmbeddingPipeline.getInstance();
-  const output = await extractor(text, { pooling: "mean", normalize: true });
-  return Array.from(output.data);
+  return "Gemini semantic enrichment is disabled (missing API key)";
 }
 
 async function main() {
   console.log("Fetching items from the database...");
-  const items = await prisma.item.findMany();
-  
-  console.log(`Found ${items.length} items. Starting AI vector generation...`);
+  console.log(`Embedding model: ${CATALOGUE_MODELS.embedding}`);
+  console.log(`Semantic image strategy: ${getCaptionStrategyLabel()}`);
+  console.log(`Force caption reset: ${forceCaptions ? "enabled" : "disabled"}`);
+
+  const items = await prisma.item.findMany({
+    select: {
+      itemId: true,
+      itemDesc: true,
+      itemImage: true,
+      itemImageCaption: true,
+    },
+    orderBy: { itemId: "asc" },
+  });
+  console.log(`Found ${items.length} items. Starting embedding generation...`);
 
   for (const item of items) {
-    // Combine fields to give the AI rich context
-    const searchableText = `${item.itemDesc} ${item.itemRemarks || ""} ${item.itemSloc} ${item.itemIh}`.trim();
-    
-    const embeddingVector = await generateEmbedding(searchableText);
-    const vectorString = `[${embeddingVector.join(",")}]`;
+    console.log(`\nProcessing item ${item.itemId}: ${item.itemDesc}`);
 
-    // updates the item with its embedded vector without dropping the column 
-    await prisma.$executeRaw`
-      UPDATE item 
-      SET item_embedding = ${vectorString}::vector 
-      WHERE item_id = ${item.itemId}
-    `;
-    
-    console.log(`Successfully mapped and updated Item ID: ${item.itemId}`);
+    if (forceCaptions && item.itemImage && item.itemImageCaption) {
+      await prisma.item.update({
+        where: { itemId: item.itemId },
+        data: { itemImageCaption: null },
+      });
+      console.log("  Existing caption cleared due to --force-captions");
+    }
+
+    await generateAndStoreItemEmbedding(item.itemId, forceCaptions);
+    console.log("  Item indexing complete.");
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
-  console.log("All existing items have been successfully embedded!");
+  console.log("\nAll items processed.");
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
+  .catch((error) => {
+    console.error(error);
     process.exit(1);
   })
   .finally(async () => {
