@@ -1,4 +1,5 @@
 import { pipeline } from "@xenova/transformers";
+import { CatalogueSearchableFields, CatalogueImageContext } from "../types/ai";
 
 export const CATALOGUE_EMBEDDING_DIMENSIONS = 384;
 
@@ -28,21 +29,6 @@ const SEMANTIC_IMAGE_PROMPT =
   "Example: The Hobbit, Book, Novel, Fantasy, Entertainment. " +
   "Example: Wireless Microphone, Microphone, Audio Visual, Electronics, Equipment." +
   "";
-
-export type CatalogueSearchableFields = {
-  itemDesc: string;
-  itemRemarks?: string | null;
-  itemSloc: string;
-  itemIh: string;
-  itemImageCaption?: string | null;
-};
-
-export type CatalogueImageContext = {
-  itemDesc?: string | null;
-  itemRemarks?: string | null;
-  itemUom?: string | null;
-  itemSloc?: string | null;
-};
 
 class EmbeddingPipeline {
   private static task = "feature-extraction" as const;
